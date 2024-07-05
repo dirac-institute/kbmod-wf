@@ -1,0 +1,24 @@
+# Changes here will be overwritten by Copier
+_commit: v2.0.1
+_src_path: gh:lincc-frameworks/python-project-template
+author_email: awoldag@uw.edu
+author_name: Drew Oldag
+create_example_module: true
+custom_install: true
+enforce_style:
+- black
+failure_notification:
+- slack
+include_benchmarks: false
+include_docs: true
+include_notebooks: true
+mypy_type_checking: none
+package_name: kbmod_wf
+project_license: MIT
+project_name: kbmod-wf
+project_organization: dirac-institute
+python_versions:
+- '3.9'
+- '3.10'
+- '3.11'
+- '3.12'
