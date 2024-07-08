@@ -49,7 +49,7 @@ testpaths = [
 
 [tool.black]
 line-length = 110
-target-version = ["py39"]
+target-version = ["py312"]
 
 [tool.isort]
 profile = "black"
@@ -57,7 +57,7 @@ line_length = 110
 
 [tool.ruff]
 line-length = 110
-target-version = "py39"
+target-version = "py312"
 
 [tool.ruff.lint]
 select = [
