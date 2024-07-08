@@ -1,11 +1,15 @@
+import os
 from parsl import Config
 from parsl.executors import ThreadPoolExecutor
+
+this_dir = os.path.dirname(os.path.abspath(__file__))
+project_dir = os.path.abspath(os.path.join(this_dir, "../../../"))
 
 
 def dev_config():
     return Config(
-        # run_dir='runinfo', # do some introspection here so that we can place the runinfo directory somewhere above src.
-        initialize_logging=False,
+        # put the log files in in the top level folder, "run_logs".
+        run_dir=os.path.join(project_dir, "run_logs"),
         executors=[
             ThreadPoolExecutor(
                 label="local_dev_testing",

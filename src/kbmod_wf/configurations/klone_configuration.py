@@ -9,6 +9,7 @@ walltimes = {
 
 def klone_config():
     return Config(
+        run_dir="/gscratch/dirac/kbmod/workflow/",
         executors=[
             HighThroughputExecutor(
                 label="small_cpu",
@@ -26,5 +27,5 @@ def klone_config():
                     walltime=walltimes["compute-bigmem"],
                 ),
             ),
-        ]
+        ],
     )
