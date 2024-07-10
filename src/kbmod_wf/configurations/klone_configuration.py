@@ -1,6 +1,8 @@
+import os
+import datetime
 from parsl import Config
 from parsl.executors import HighThroughputExecutor
-from parsl.providers import SlurmProvider
+from parsl.providers import LocalProvider, SlurmProvider
 
 walltimes = {
     "compute-bigmem": "01:00:00",  # change this to be appropriate
@@ -9,7 +11,7 @@ walltimes = {
 
 def klone_config():
     return Config(
-        run_dir="/gscratch/dirac/kbmod/workflow/",
+        run_dir=os.path.join("/gscratch/dirac/kbmod/workflow/run_logs", datetime.date.today().isoformat()),
         executors=[
             HighThroughputExecutor(
                 label="small_cpu",
@@ -25,6 +27,13 @@ def klone_config():
                     mem_per_node=64,  # In GB
                     exclusive=False,
                     walltime=walltimes["compute-bigmem"],
+                ),
+            ),
+            HighThroughputExecutor(
+                label="local_thread",
+                provider=LocalProvider(
+                    init_blocks=1,
+                    max_blocks=1,
                 ),
             ),
         ],
