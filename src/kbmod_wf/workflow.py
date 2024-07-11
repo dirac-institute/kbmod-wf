@@ -1,6 +1,6 @@
 import os
 import parsl
-from parsl import python_app, File
+from parsl import join_app, python_app, File
 import parsl.executors
 
 from kbmod_wf.utilities.configuration_utilities import get_config
@@ -14,6 +14,9 @@ def create_uri_manifest(inputs=[], outputs=[], directory_path=None, logging_file
     from kbmod_wf.utilities.logger_utilities import configure_logger
 
     logger = configure_logger("task.create_uri_manifest", logging_file.filepath)
+
+    this_dir = os.path.dirname(os.path.abspath(__file__))
+    directory_path = os.path.abspath(os.path.join(this_dir, "../../dev_staging"))
 
     # List all entries in the directory
     entries = os.listdir(directory_path)
@@ -30,6 +33,41 @@ def create_uri_manifest(inputs=[], outputs=[], directory_path=None, logging_file
     with open(outputs[0].filename, "w") as manifest_file:
         for file in files:
             manifest_file.write(file + "\n")
+
+
+@join_app
+def read_and_dispatch(inputs=[], outputs=[], logging_file=None):
+    from kbmod_wf.utilities.logger_utilities import configure_logger
+
+    logger = configure_logger("task.read_and_dispatch", logging_file.filepath)
+
+    futures = []
+    with open(inputs[0].filepath, "r") as f:
+        for line in f:
+            future = read_and_log(
+                inputs=[File(line.strip())],
+                outputs=[],
+                logging_file=logging_file,
+            )
+            futures.append(future)
+
+    logger.info(f"Created {len(futures)} read_and_log tasks.")
+    return futures
+
+
+@python_app(executors=get_executors(["local_dev_testing", "small_cpu"]))
+def read_and_log(inputs=[], outputs=[], logging_file=None):
+    from kbmod_wf.utilities.logger_utilities import configure_logger
+    import time
+
+    time.sleep(3)
+    logger = configure_logger("task.read_and_log", logging_file.filepath)
+
+    with open(inputs[0].filepath, "r") as f:
+        for line in f:
+            logger.info(line.strip())
+
+    return 1
 
 
 @python_app(executors=get_executors(["local_dev_testing", "small_cpu"]))
@@ -59,6 +97,19 @@ def reproject_ic(inputs=[], outputs=[], logging_file=None):
 def workflow_runner(env=None):
     with parsl.load(get_config(env=env)) as dfk:
         logging_file = File(os.path.join(dfk.run_dir, "parsl.log"))
+
+        manifest_file = File(os.path.join(os.getcwd(), "manifest.txt"))
+        create_uri_manifest_future = create_uri_manifest(
+            inputs=[],
+            outputs=[manifest_file],
+            logging_file=logging_file,
+        )
+
+        read_and_dispatch_future = read_and_dispatch(
+            inputs=[create_uri_manifest_future.outputs[0]],
+            outputs=[],
+            logging_file=logging_file,
+        )
 
         uri_list = File(os.path.join(os.getcwd(), "uri_list.txt"))
         uri_to_ic_future = uri_to_ic(
