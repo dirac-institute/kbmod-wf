@@ -14,6 +14,9 @@ def configure_logger(name, file_path):
 
     import logging
 
+    if name in logging.Logger.manager.loggerDict:
+        return logging.Logger.manager.loggerDict[name]
+
     logger = logging.getLogger(name)
     handler = logging.FileHandler(file_path)
     formatter = logging.Formatter(DEFAULT_FORMAT, datefmt="%Y-%m-%d %H:%M:%S")

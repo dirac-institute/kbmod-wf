@@ -9,7 +9,7 @@ walltimes = {
 }
 
 
-def klone_config():
+def klone_resource_config():
     return Config(
         run_dir=os.path.join("/gscratch/dirac/kbmod/workflow/run_logs", datetime.date.today().isoformat()),
         executors=[
@@ -27,6 +27,8 @@ def klone_config():
                     mem_per_node=64,  # In GB
                     exclusive=False,
                     walltime=walltimes["compute-bigmem"],
+                    # Command to run before starting worker - i.e. conda activate <special_env>
+                    worker_init="",
                 ),
             ),
             HighThroughputExecutor(
