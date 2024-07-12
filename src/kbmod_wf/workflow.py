@@ -1,10 +1,13 @@
+import argparse
+import glob
 import os
 import parsl
-from parsl import join_app, python_app, File
+from parsl import python_app, File
 import parsl.executors
 
-from kbmod_wf.utilities.configuration_utilities import get_config
+from kbmod_wf.utilities.configuration_utilities import get_resource_config
 from kbmod_wf.utilities.executor_utilities import get_executors
+from kbmod_wf.utilities.logger_utilities import configure_logger
 
 
 @python_app(executors=get_executors(["local_dev_testing", "local_thread"]))
@@ -15,11 +18,13 @@ def create_uri_manifest(inputs=[], outputs=[], directory_path=None, logging_file
 
     logger = configure_logger("task.create_uri_manifest", logging_file.filepath)
 
-    this_dir = os.path.dirname(os.path.abspath(__file__))
-    directory_path = os.path.abspath(os.path.join(this_dir, "../../dev_staging"))
+    if directory_path is None:
+        this_dir = os.path.dirname(os.path.abspath(__file__))
+        directory_path = os.path.abspath(os.path.join(this_dir, "../../dev_staging"))
 
-    # List all entries in the directory
-    entries = os.listdir(directory_path)
+    # Gather all the *.lst entries in the directory
+    pattern = os.path.join(directory_path, "*.lst")
+    entries = glob.glob(pattern)
 
     # Filter out directories, keep only files
     files = []
@@ -34,40 +39,25 @@ def create_uri_manifest(inputs=[], outputs=[], directory_path=None, logging_file
         for file in files:
             manifest_file.write(file + "\n")
 
-
-@join_app
-def read_and_dispatch(inputs=[], outputs=[], logging_file=None):
-    from kbmod_wf.utilities.logger_utilities import configure_logger
-
-    logger = configure_logger("task.read_and_dispatch", logging_file.filepath)
-
-    futures = []
-    with open(inputs[0].filepath, "r") as f:
-        for line in f:
-            future = read_and_log(
-                inputs=[File(line.strip())],
-                outputs=[],
-                logging_file=logging_file,
-            )
-            futures.append(future)
-
-    logger.info(f"Created {len(futures)} read_and_log tasks.")
-    return futures
+    return outputs[0]
 
 
 @python_app(executors=get_executors(["local_dev_testing", "small_cpu"]))
 def read_and_log(inputs=[], outputs=[], logging_file=None):
+    """THIS IS A PLACEHOLDER FUNCTION THAT WILL BE REMOVED SOON"""
     from kbmod_wf.utilities.logger_utilities import configure_logger
-    import time
 
-    time.sleep(3)
     logger = configure_logger("task.read_and_log", logging_file.filepath)
 
     with open(inputs[0].filepath, "r") as f:
         for line in f:
+            value = line.strip()
             logger.info(line.strip())
 
-    return 1
+    with open(outputs[0].filepath, "w") as f:
+        f.write(f"Logged: {value}")
+
+    return outputs[0]
 
 
 @python_app(executors=get_executors(["local_dev_testing", "small_cpu"]))
@@ -78,26 +68,62 @@ def uri_to_ic(inputs=[], outputs=[], logging_file=None):
     logger = configure_logger("task.uri_to_ic", logging_file.filepath)
 
     logger.info("Starting uri_to_ic")
-    uri_to_ic(ic_output_file=outputs[0].filepath, logger=logger)
+    uri_to_ic(target_uris_file=inputs[0].filepath, ic_output_file=outputs[0].filepath, logger=logger)
     logger.warning("Completed uri_to_ic")
+
+    return outputs[0]
 
 
 @python_app(executors=get_executors(["local_dev_testing", "small_cpu"]))
-def reproject_ic(inputs=[], outputs=[], logging_file=None):
+def ic_to_wu(inputs=[], outputs=[], logging_file=None):
     from kbmod_wf.utilities.logger_utilities import configure_logger
-    from kbmod_wf.task_impls.reproject_ic import reproject_ic
+    from kbmod_wf.task_impls.ic_to_wu import ic_to_wu
 
-    logger = configure_logger("task.reproject_ic", logging_file.filepath)
+    logger = configure_logger("task.ic_to_wu", logging_file.filepath)
+
+    logger.info("Starting ic_to_wu")
+    ic_to_wu(ic_file=inputs[0].filepath, wu_file=outputs[0].filepath, logger=logger)
+    logger.warning("Completed ic_to_wu")
+
+    return outputs[0]
+
+
+@python_app(executors=get_executors(["local_dev_testing", "small_cpu"]))
+def reproject_wu(inputs=[], outputs=[], logging_file=None):
+    from kbmod_wf.utilities.logger_utilities import configure_logger
+    from kbmod_wf.task_impls.reproject_wu import reproject_wu
+
+    logger = configure_logger("task.reproject_wu", logging_file.filepath)
 
     logger.info("Starting reproject_ic")
-    reproject_ic(logger=logger)
+    reproject_wu(input_wu=inputs[0].filepath, reprojected_wu=outputs[0].filepath, logger=logger)
     logger.warning("Completed reproject_ic")
+
+    return outputs[0]
+
+
+@python_app(executors=get_executors(["local_dev_testing", "small_cpu"]))
+def kbmod_search(inputs=[], outputs=[], logging_file=None):
+    from kbmod_wf.utilities.logger_utilities import configure_logger
+    from kbmod_wf.task_impls.kbmod_search import kbmod_search
+
+    logger = configure_logger("task.kbmod_search", logging_file.filepath)
+
+    logger.info("Starting kbmod_search")
+    kbmod_search(input_wu=inputs[0].filepath, result_file=outputs[0].filepath, logger=logger)
+    logger.warning("Completed kbmod_search")
+
+    return outputs[0]
 
 
 def workflow_runner(env=None):
-    with parsl.load(get_config(env=env)) as dfk:
+    with parsl.load(get_resource_config(env=env)) as dfk:
         logging_file = File(os.path.join(dfk.run_dir, "parsl.log"))
+        logger = configure_logger("workflow.workflow_runner", logging_file.filepath)
 
+        logger.info("Starting workflow")
+
+        # gather all the .lst files that are staged for processing
         manifest_file = File(os.path.join(os.getcwd(), "manifest.txt"))
         create_uri_manifest_future = create_uri_manifest(
             inputs=[],
@@ -105,27 +131,66 @@ def workflow_runner(env=None):
             logging_file=logging_file,
         )
 
-        read_and_dispatch_future = read_and_dispatch(
-            inputs=[create_uri_manifest_future.outputs[0]],
-            outputs=[],
-            logging_file=logging_file,
-        )
+        with open(create_uri_manifest_future.result(), "r") as f:
+            # process each .lst file in the manifest into a .ecvs file
+            uri_to_ic_futures = []
+            for line in f:
+                uri_to_ic_futures.append(
+                    uri_to_ic(
+                        inputs=[File(line.strip())],
+                        outputs=[File(line + ".ecsv")],
+                        logging_file=logging_file,
+                    )
+                )
 
-        uri_list = File(os.path.join(os.getcwd(), "uri_list.txt"))
-        uri_to_ic_future = uri_to_ic(
-            inputs=[uri_list],
-            outputs=[File(os.path.join(os.getcwd(), "ic.ecsv"))],
-            logging_file=logging_file,
-        )
+            # create an original WorkUnit for each .ecsv file
+            original_work_unit_futures = []
+            for f in uri_to_ic_futures:
+                original_work_unit_futures.append(
+                    ic_to_wu(
+                        inputs=[f.result()],
+                        outputs=[File(f.result().filepath + ".wu")],
+                        logging_file=logging_file,
+                    )
+                )
 
-        reproject_ic_future = reproject_ic(
-            inputs=[uri_to_ic_future.outputs[0]],
-            outputs=[],
-            logging_file=logging_file,
-        )
+            # reproject each WorkUnit for a range of distances
+            reproject_futures = []
+            for f in original_work_unit_futures:
+                for distance in range(40, 60, 10):
+                    reproject_futures.append(
+                        reproject_wu(
+                            inputs=[f.result()],
+                            outputs=[File(f.result().filepath + f".{distance}.repro")],
+                            logging_file=logging_file,
+                        )
+                    )
+
+            # run kbmod search on each reprojected WorkUnit
+            search_futures = []
+            for f in reproject_futures:
+                search_futures.append(
+                    kbmod_search(
+                        inputs=[f.result()],
+                        outputs=[File(f.result().filepath + ".search")],
+                        logging_file=logging_file,
+                    )
+                )
+
+        logger.info("Workflow complete")
 
     parsl.clear()
 
 
 if __name__ == "__main__":
-    workflow_runner()
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--env",
+        type=str,
+        choices=["dev", "klone"],
+        help="The environment to run the workflow in.",
+    )
+
+    args = parser.parse_args()
+
+    workflow_runner(env=args.env)

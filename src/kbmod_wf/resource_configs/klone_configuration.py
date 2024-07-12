@@ -9,7 +9,7 @@ walltimes = {
 }
 
 
-def klone_config():
+def klone_resource_config():
     return Config(
         run_dir=os.path.join("/gscratch/dirac/kbmod/workflow/run_logs", datetime.date.today().isoformat()),
         executors=[

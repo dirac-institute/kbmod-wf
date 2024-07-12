@@ -5,8 +5,15 @@ import glob
 
 
 def uri_to_ic(target_uris_file=None, uris_base_dir=None, ic_output_file=None, logger=None):
-    logger.info("In the fake uri_to_ic task_impl")
-    return 1
+    with open(target_uris_file, "r") as f:
+        for line in f:
+            value = line.strip()
+            logger.info(line.strip())
+
+    with open(ic_output_file, "w") as f:
+        f.write(f"Logged: {value}")
+
+    return ic_output_file
 
 
 # def uri_to_ic(target_uris_file=None, uris_base_dir=None, ic_output_file=None, logger=None):
