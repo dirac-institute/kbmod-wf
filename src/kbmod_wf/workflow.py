@@ -68,7 +68,12 @@ def uri_to_ic(inputs=[], outputs=[], logging_file=None):
     logger = configure_logger("task.uri_to_ic", logging_file.filepath)
 
     logger.info("Starting uri_to_ic")
-    uri_to_ic(target_uris_file=inputs[0].filepath, ic_output_file=outputs[0].filepath, logger=logger)
+    uri_to_ic(
+        target_uris_file_path=inputs[0].filepath,
+        uris_base_dir=None,  # determine what, if any, value should be used.
+        ic_output_file_path=outputs[0].filepath,
+        logger=logger,
+    )
     logger.warning("Completed uri_to_ic")
 
     return outputs[0]
