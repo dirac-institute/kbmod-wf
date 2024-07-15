@@ -1,5 +1,4 @@
 import argparse
-import glob
 import os
 import parsl
 from parsl import python_app, File
@@ -14,10 +13,14 @@ from kbmod_wf.utilities.logger_utilities import configure_logger
 def create_uri_manifest(inputs=[], outputs=[], directory_path=None, logging_file=None):
     """This app will go to a given directory, find all of the uri.lst files there,
     and copy the paths to the manifest file."""
+    import glob
+    import os
     from kbmod_wf.utilities.logger_utilities import configure_logger
 
     logger = configure_logger("task.create_uri_manifest", logging_file.filepath)
 
+    #! We need to do something about this immediately. `__file__` doesn't seem to
+    #! be valid here when running on klone
     if directory_path is None:
         this_dir = os.path.dirname(os.path.abspath(__file__))
         directory_path = os.path.abspath(os.path.join(this_dir, "../../dev_staging"))
@@ -181,6 +184,8 @@ def workflow_runner(env=None):
                         logging_file=logging_file,
                     )
                 )
+
+        [f.result() for f in search_futures]
 
         logger.info("Workflow complete")
 
