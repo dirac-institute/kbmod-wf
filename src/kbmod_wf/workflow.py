@@ -1,16 +1,17 @@
 import argparse
 import os
+import toml
 import parsl
 from parsl import python_app, File
 import parsl.executors
 
-from kbmod_wf.utilities.configuration_utilities import get_resource_config
+from kbmod_wf.utilities.configuration_utilities import apply_runtime_updates, get_resource_config
 from kbmod_wf.utilities.executor_utilities import get_executors
 from kbmod_wf.utilities.logger_utilities import configure_logger
 
 
 @python_app(executors=get_executors(["local_dev_testing", "local_thread"]))
-def create_uri_manifest(inputs=[], outputs=[], directory_path=None, logging_file=None):
+def create_uri_manifest(inputs=[], outputs=[], config={}, logging_file=None):
     """This app will go to a given directory, find all of the uri.lst files there,
     and copy the paths to the manifest file."""
     import glob
@@ -19,11 +20,11 @@ def create_uri_manifest(inputs=[], outputs=[], directory_path=None, logging_file
 
     logger = configure_logger("task.create_uri_manifest", logging_file.filepath)
 
-    #! We need to do something about this immediately. `__file__` doesn't seem to
-    #! be valid here when running on klone
+    directory_path = config.get("staging_directory")
     if directory_path is None:
-        this_dir = os.path.dirname(os.path.abspath(__file__))
-        directory_path = os.path.abspath(os.path.join(this_dir, "../../dev_staging"))
+        raise ValueError("No staging_directory provided in the configuration.")
+
+    logger.info(f"Looking for staged files in {directory_path}")
 
     # Gather all the *.lst entries in the directory
     pattern = os.path.join(directory_path, "*.lst")
@@ -124,10 +125,19 @@ def kbmod_search(inputs=[], outputs=[], logging_file=None):
     return outputs[0]
 
 
-def workflow_runner(env=None):
-    with parsl.load(get_resource_config(env=env)) as dfk:
+def workflow_runner(env: str = None, runtime_config: dict = None) -> None:
+    resource_config = get_resource_config(env=env)
+
+    if runtime_config is not None:
+        resource_config = apply_runtime_updates(resource_config, runtime_config)
+        app_configs = runtime_config.get("apps", {})
+
+    with parsl.load(resource_config) as dfk:
         logging_file = File(os.path.join(dfk.run_dir, "parsl.log"))
         logger = configure_logger("workflow.workflow_runner", logging_file.filepath)
+
+        if runtime_config is not None:
+            logger.info(f"Using runtime configuration defintion:\n{toml.dumps(runtime_config)}")
 
         logger.info("Starting workflow")
 
@@ -136,6 +146,7 @@ def workflow_runner(env=None):
         create_uri_manifest_future = create_uri_manifest(
             inputs=[],
             outputs=[manifest_file],
+            config=app_configs.get("create_uri_manifest", {}),
             logging_file=logging_file,
         )
 
@@ -201,6 +212,17 @@ if __name__ == "__main__":
         help="The environment to run the workflow in.",
     )
 
+    parser.add_argument(
+        "--runtime-config",
+        type=str,
+        help="The complete runtime configuration filepath to use for the workflow.",
+    )
+
     args = parser.parse_args()
 
-    workflow_runner(env=args.env)
+    # if a runtime_config file was provided and exists, load the toml as a dict.
+    if args.runtime_config is not None and os.path.exists(args.runtime_config):
+        with open(args.runtime_config, "r") as toml_runtime_config:
+            runtime_config = toml.load(toml_runtime_config)
+
+    workflow_runner(env=args.env, runtime_config=runtime_config)
