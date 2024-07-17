@@ -14,7 +14,9 @@ def klone_resource_config():
     return Config(
         app_cache=True,
         checkpoint_mode="task_exit",
-        checkpoint_files=get_all_checkpoints(),
+        checkpoint_files=get_all_checkpoints(
+            os.path.join("/gscratch/dirac/kbmod/workflow/run_logs", datetime.date.today().isoformat())
+        ),
         run_dir=os.path.join("/gscratch/dirac/kbmod/workflow/run_logs", datetime.date.today().isoformat()),
         executors=[
             HighThroughputExecutor(
