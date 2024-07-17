@@ -150,4 +150,4 @@ _html/
 .initialize_new_project.sh
 
 # Parsl log files
-runinfo/
+run_logs/

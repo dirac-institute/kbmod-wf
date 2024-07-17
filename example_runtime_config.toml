@@ -1,0 +1,14 @@
+
+# All values set here will be applied to the resource configuration prior to 
+# calling parsl.load(config). Even if the key does't exist in the resource
+# config, it will be added with the value defined here.
+[resource_config_modifiers]
+checkpoint_mode = "task_exit"
+
+
+# Values in the apps.XXX section will be passed as a dictionary to the corresponding
+# app. e.g. apps.create_uri_manifest will be passed to the create_uri_manifest app.
+[apps.create_uri_manifest]
+# The path to the staging directory
+# e.g. "/gscratch/dirac/kbmod/workflow/staging"
+staging_directory = "/home/drew/code/kbmod-wf/dev_staging"

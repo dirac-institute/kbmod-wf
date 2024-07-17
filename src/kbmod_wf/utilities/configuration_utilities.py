@@ -1,4 +1,5 @@
 import platform
+import toml
 from typing import Literal
 
 from kbmod_wf.resource_configs import *
@@ -53,3 +54,32 @@ def is_running_on_wsl() -> bool:
         except FileNotFoundError:
             pass
     return False
+
+
+def apply_runtime_updates(resource_config, runtime_config):
+    """Before calling parsl.load(config), we want to modify any resource configuration
+    parameters with any runtime configuration options that might be set.
+
+    Any key in the top level of the runtime_config dictionary that matches a
+    parameter of the resource_config will be used to override the resource_config
+    value.
+
+    Parameters
+    ----------
+    resource_config : parsl.config.Config
+        The configuration object that defines the computational resources for
+        running the workflow. These are defined in the resource_configs module.
+    runtime_config : dict
+        This is the set of runtime configuration options that are used to modify
+        the workflow on a per-run basis.
+
+    Returns
+    -------
+    parsl.config.Config
+        The original resource_config updated with values from runtime_config
+    """
+    resource_config_modifiers = runtime_config.get("resource_config_modifiers", {})
+    for key, value in resource_config_modifiers.items():
+        setattr(resource_config, key, value)
+
+    return resource_config

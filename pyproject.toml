@@ -17,6 +17,7 @@ dynamic = ["version"]
 requires-python = ">=3.9"
 dependencies = [
     "parsl", # The primary workflow orchestration tool
+    "toml", # Used to read runtime configuration files
 ]
 
 [project.urls]
