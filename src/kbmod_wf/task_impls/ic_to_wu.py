@@ -4,6 +4,7 @@ from kbmod.configuration import SearchConfiguration
 import os
 import glob
 import time
+from logging import Logger
 
 
 def placeholder_ic_to_wu(ic_file=None, wu_file=None, logger=None):
@@ -19,19 +20,27 @@ def placeholder_ic_to_wu(ic_file=None, wu_file=None, logger=None):
     return wu_file
 
 
-def ic_to_wu(ic_file=None, runtime_config={}, wu_file=None, logger=None):
+def ic_to_wu(
+    ic_filepath: str = None, wu_filepath: str = None, runtime_config: dict = {}, logger: Logger = None
+):
     ic_to_wu_converter = ICtoWUConverter(
-        ic_file=ic_file, runtime_config=runtime_config, wu_file=wu_file, logger=logger
+        ic_filepath=ic_filepath, wu_filepath=wu_filepath, runtime_config=runtime_config, logger=logger
     )
 
     return ic_to_wu_converter.create_work_unit()
 
 
 class ICtoWUConverter:
-    def __init__(self, ic_file=None, runtime_config={}, wu_file=None, logger=None):
-        self.ic_file = ic_file
+    def __init__(
+        self,
+        ic_filepath: str = None,
+        wu_filepath: str = None,
+        runtime_config: dict = {},
+        logger: Logger = None,
+    ):
+        self.ic_filepath = ic_filepath
+        self.wu_filepath = wu_filepath
         self.runtime_config = runtime_config
-        self.wu_file = wu_file
         self.logger = logger
 
         self.overwrite = self.runtime_config.get("overwrite", False)
@@ -39,26 +48,26 @@ class ICtoWUConverter:
 
     def create_work_unit(self):
         make_wu = True
-        if len(glob.glob(self.wu_file)):
+        if len(glob.glob(self.wu_filepath)):
             if self.overwrite:
-                self.logger.debug(f"Overwrite was {self.overwrite}. Deleting existing {self.wu_file}.")
-                os.remove(self.wu_file)
+                self.logger.info(f"Overwrite was {self.overwrite}. Deleting existing {self.wu_filepath}.")
+                os.remove(self.wu_filepath)
             else:
                 make_wu = False
 
         if make_wu:
-            ic = ImageCollection.read(self.ic_input_file, format="ascii.ecsv")
-            self.logger.debug(f"ImageCollection read from {self.ic_input_file}, creating work unit next.")
+            ic = ImageCollection.read(self.ic_filepath, format="ascii.ecsv")
+            self.logger.info(f"ImageCollection read from {self.ic_filepath}, creating work unit next.")
 
             last_time = time.time()
             orig_wu = ic.toWorkUnit(config=SearchConfiguration.from_file(self.search_config))
             elapsed = round(time.time() - last_time, 1)
-            self.logger.info(f"{elapsed} seconds to create WorkUnit.")
+            self.logger.debug(f"Required {elapsed}[s] to create WorkUnit.")
 
+            self.logger.info(f"Saving original work unit to: {self.wu_filepath}")
             last_time = time.time()
-            orig_wu.to_fits(self.wu_file, overwrite=True)
+            orig_wu.to_fits(self.wu_filepath, overwrite=True)
             elapsed = round(time.time() - last_time, 1)
-            self.logger.info(f"Saving original work unit to: {self.wu_file}")
-            self.logger.info(f"{elapsed} seconds to write WorkUnit to disk: {self.wu_file}")
+            self.logger.debug(f"Required {elapsed}[s] to write WorkUnit to disk: {self.wu_filepath}")
 
-        return self.wu_file
+        return self.wu_filepath

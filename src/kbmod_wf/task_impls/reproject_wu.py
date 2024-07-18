@@ -9,6 +9,7 @@ import astropy.time
 import numpy as np
 import os
 import time
+from logging import Logger
 
 
 def placeholder_reproject_wu(input_wu=None, reprojected_wu=None, logger=None):
@@ -24,12 +25,18 @@ def placeholder_reproject_wu(input_wu=None, reprojected_wu=None, logger=None):
     return reprojected_wu
 
 
-def reproject_wu(original_wu=None, uri_file=None, runtime_config={}, reprojected_wu=None, logger=None):
+def reproject_wu(
+    original_wu_filepath: str = None,
+    uri_filepath: str = None,
+    reprojected_wu_filepath: str = None,
+    runtime_config: dict = {},
+    logger: Logger = None,
+):
     wu_reprojector = WUReprojector(
-        original_wu=original_wu,
-        uri_file=uri_file,
+        original_wu_filepath=original_wu_filepath,
+        uri_filepath=uri_filepath,
+        reprojected_wu_filepath=reprojected_wu_filepath,
         runtime_config=runtime_config,
-        reprojected_wu=reprojected_wu,
         logger=logger,
     )
 
@@ -39,16 +46,16 @@ def reproject_wu(original_wu=None, uri_file=None, runtime_config={}, reprojected
 class WUReprojector:
     def __init__(
         self,
-        original_wu_filepath=None,
-        uri_filepath=None,
-        runtime_config={},
-        reprojected_wu_filepath=None,
-        logger=None,
+        original_wu_filepath: str = None,
+        uri_filepath: str = None,
+        reprojected_wu_filepath: str = None,
+        runtime_config: dict = {},
+        logger: Logger = None,
     ):
         self.original_wu_filepath = original_wu_filepath
         self.uri_filepath = uri_filepath
-        self.runtime_config = runtime_config
         self.reprojected_wu_filepath = reprojected_wu_filepath
+        self.runtime_config = runtime_config
         self.logger = logger
 
         self.overwrite = self.runtime_config.get("overwrite", False)
@@ -98,6 +105,7 @@ class WUReprojector:
             patch_fits_name = f"patch_{self.uri_params['patch_id']}.fits"
 
         # ! TODO: Need to figure out what to do with args.result_dir here. Pass `filename` as an parsl.output?
+        # ! Also, the _create_wcs_from_corners function doesn't make use of all the self.<variables> available to it.
         patch_wcs = self._create_wcs_from_corners(
             self.patch_corners,
             self.image_width,
@@ -109,7 +117,7 @@ class WUReprojector:
         self.logger.info(f"Reading existing WorkUnit from disk: {self.original_wu_filepath}")
         orig_wu = WorkUnit.from_fits(self.original_wu_filepath)
         elapsed = round(time.time() - last_time, 1)
-        self.logger.debug(f"{elapsed} seconds to read original WorkUnit ({self.original_wu_filepath}).")
+        self.logger.debug(f"Required {elapsed}[s] to read original WorkUnit {self.original_wu_filepath}.")
 
         # gather elements needed for reproject phase
         imgs = orig_wu.im_stack
@@ -127,7 +135,7 @@ class WUReprojector:
             seed=None,
         )
         elapsed = round(time.time() - last_time, 1)
-        self.logger.debug(f"{elapsed} seconds elapsed for transform WCS objects to EBD phase.")
+        self.logger.debug(f"Required {elapsed}[s] to transform WCS objects to EBD..")
 
         if len(orig_wu._per_image_wcs) != len(ebd_per_image_wcs):
             raise ValueError(
@@ -146,7 +154,7 @@ class WUReprojector:
             geocentric_distances=geocentric_dists,
         )
         elapsed = round(time.time() - last_time, 1)
-        self.logger.debug(f"{elapsed} seconds elapsed to create EBD WorkUnit.")
+        self.logger.debug(f"Required {elapsed}[s] to create EBD WorkUnit.")
 
         # Reproject to a common WCS using the WCS for our patch
         self.logger.debug(f"Reprojecting WorkUnit with {self.n_workers} workers...")
@@ -155,7 +163,7 @@ class WUReprojector:
             ebd_wu, patch_wcs, frame="ebd", max_parallel_processes=self.n_workers
         )
         elapsed = round(time.time() - last_time, 1)
-        self.logger.debug(f"{elapsed} seconds elapsed to create the reprojected WorkUnit.")
+        self.logger.debug(f"Required {elapsed}[s] to create the reprojected WorkUnit.")
 
         # Save the reprojected WorkUnit
         self.logger.debug(f"Saving reprojected work unit to: {self.reprojected_wu_filepath}")
@@ -163,12 +171,12 @@ class WUReprojector:
         reprojected_wu.to_fits(self.reprojected_wu_filepath)
         elapsed = round(time.time() - last_time, 1)
         self.logger.debug(
-            f"{elapsed} seconds elapsed to create the reprojected WorkUnit: {self.reprojected_wu_filepath}"
+            f"Required {elapsed}[s] to create the reprojected WorkUnit: {self.reprojected_wu_filepath}"
         )
 
         return self.reprojected_wu_filepath
 
-    def _get_params_from_uri_file(self, uri_file):
+    def _get_params_from_uri_file(self):
         """
         Get parameters we place into URI file as comments at the top.
         Example start of URI file (6/6/2024 COC):
@@ -182,7 +190,7 @@ class WUReprojector:
         6/6/2024 COC
         """
         results = {}
-        with open(uri_file, "r") as f:
+        with open(self.uri_filepath, "r") as f:
             for line in f:
                 line = line.strip()
                 if line == "":
@@ -208,7 +216,10 @@ class WUReprojector:
         x_pixels = int(np.ceil((patch_size_arcmin[0] * 60) / pixel_scale_arcsec_per_pix))
         y_pixels = int(np.ceil((patch_size_arcmin[1] * 60) / pixel_scale_arcsec_per_pix))
 
-        patch_pixels = int(np.ceil(patch_size_arcmin * 60 / pixel_scale_arcsec_per_pix))
+        # ! TODO, can't the above lines be changed to the following?
+        # ! And thereby eliminate the to input parameters to the function?
+        # patch_pixels = int(np.ceil(self.patch_size * 60 / self.pixel_scale))
+
         patch_pixels = [x_pixels, y_pixels]
 
         self.logger.debug(

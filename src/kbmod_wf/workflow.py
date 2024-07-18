@@ -53,27 +53,7 @@ def create_uri_manifest(inputs=[], outputs=[], config={}, logging_file=None):
 @python_app(
     cache=True, executors=get_executors(["local_dev_testing", "small_cpu"]), ignore_for_cache=["logging_file"]
 )
-def read_and_log(inputs=[], outputs=[], logging_file=None):
-    """THIS IS A PLACEHOLDER FUNCTION THAT WILL BE REMOVED SOON"""
-    from kbmod_wf.utilities.logger_utilities import configure_logger
-
-    logger = configure_logger("task.read_and_log", logging_file.filepath)
-
-    with open(inputs[0].filepath, "r") as f:
-        for line in f:
-            value = line.strip()
-            logger.info(line.strip())
-
-    with open(outputs[0].filepath, "w") as f:
-        f.write(f"Logged: {value}")
-
-    return outputs[0]
-
-
-@python_app(
-    cache=True, executors=get_executors(["local_dev_testing", "small_cpu"]), ignore_for_cache=["logging_file"]
-)
-def uri_to_ic(inputs=[], outputs=[], logging_file=None):
+def uri_to_ic(inputs=[], outputs=[], runtime_config={}, logging_file=None):
     from kbmod_wf.utilities.logger_utilities import configure_logger
     from kbmod_wf.task_impls.uri_to_ic import uri_to_ic
 
@@ -81,9 +61,10 @@ def uri_to_ic(inputs=[], outputs=[], logging_file=None):
 
     logger.info("Starting uri_to_ic")
     uri_to_ic(
-        target_uris_file_path=inputs[0].filepath,
+        uris_filepath=inputs[0].filepath,
         uris_base_dir=None,  # determine what, if any, value should be used.
-        ic_output_file_path=outputs[0].filepath,
+        ic_filepath=outputs[0].filepath,
+        runtime_config=runtime_config,
         logger=logger,
     )
     logger.warning("Completed uri_to_ic")
@@ -94,14 +75,19 @@ def uri_to_ic(inputs=[], outputs=[], logging_file=None):
 @python_app(
     cache=True, executors=get_executors(["local_dev_testing", "small_cpu"]), ignore_for_cache=["logging_file"]
 )
-def ic_to_wu(inputs=[], outputs=[], logging_file=None):
+def ic_to_wu(inputs=[], outputs=[], runtime_config={}, logging_file=None):
     from kbmod_wf.utilities.logger_utilities import configure_logger
     from kbmod_wf.task_impls.ic_to_wu import ic_to_wu
 
     logger = configure_logger("task.ic_to_wu", logging_file.filepath)
 
     logger.info("Starting ic_to_wu")
-    ic_to_wu(ic_file=inputs[0].filepath, wu_file=outputs[0].filepath, logger=logger)
+    ic_to_wu(
+        ic_filepath=inputs[0].filepath,
+        wu_filepath=outputs[0].filepath,
+        runtime_config=runtime_config,
+        logger=logger,
+    )
     logger.warning("Completed ic_to_wu")
 
     return outputs[0]
@@ -110,14 +96,20 @@ def ic_to_wu(inputs=[], outputs=[], logging_file=None):
 @python_app(
     cache=True, executors=get_executors(["local_dev_testing", "small_cpu"]), ignore_for_cache=["logging_file"]
 )
-def reproject_wu(inputs=[], outputs=[], logging_file=None):
+def reproject_wu(inputs=[], outputs=[], runtime_config={}, logging_file=None):
     from kbmod_wf.utilities.logger_utilities import configure_logger
     from kbmod_wf.task_impls.reproject_wu import reproject_wu
 
     logger = configure_logger("task.reproject_wu", logging_file.filepath)
 
     logger.info("Starting reproject_ic")
-    reproject_wu(input_wu=inputs[0].filepath, reprojected_wu=outputs[0].filepath, logger=logger)
+    reproject_wu(
+        original_wu_filepath=inputs[0].filepath,
+        uri_filepath=None,  # ! determine what, if any, value should be used.
+        reprojected_wu_filepath=outputs[0].filepath,
+        runtime_config=runtime_config,
+        logger=logger,
+    )
     logger.warning("Completed reproject_ic")
 
     return outputs[0]
@@ -126,14 +118,20 @@ def reproject_wu(inputs=[], outputs=[], logging_file=None):
 @python_app(
     cache=True, executors=get_executors(["local_dev_testing", "small_cpu"]), ignore_for_cache=["logging_file"]
 )
-def kbmod_search(inputs=[], outputs=[], logging_file=None):
+def kbmod_search(inputs=[], outputs=[], runtime_config={}, logging_file=None):
     from kbmod_wf.utilities.logger_utilities import configure_logger
     from kbmod_wf.task_impls.kbmod_search import kbmod_search
 
     logger = configure_logger("task.kbmod_search", logging_file.filepath)
 
     logger.info("Starting kbmod_search")
-    kbmod_search(input_wu=inputs[0].filepath, result_file=outputs[0].filepath, logger=logger)
+    kbmod_search(
+        wu_filepath=inputs[0].filepath,
+        search_config_filepath=None,  # ! determine what, if any, value should be used.
+        result_filepath=outputs[0].filepath,
+        runtime_config=runtime_config,
+        logger=logger,
+    )
     logger.warning("Completed kbmod_search")
 
     return outputs[0]

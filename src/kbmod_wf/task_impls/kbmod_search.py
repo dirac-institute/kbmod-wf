@@ -3,6 +3,7 @@ from kbmod.work_unit import WorkUnit
 
 import os
 import time
+from logging import Logger
 
 
 def placeholder_kbmod_search(input_wu=None, result_file=None, logger=None):
@@ -21,13 +22,17 @@ def placeholder_kbmod_search(input_wu=None, result_file=None, logger=None):
 
 
 def kbmod_search(
-    input_wu=None, search_config_filepath=None, runtime_config={}, result_file=None, logger=None
+    wu_filepath: str = None,
+    search_config_filepath: str = None,  # ! Seems like this should be provided in the runtime_config dictionary ???
+    result_filepath: str = None,
+    runtime_config: dict = {},
+    logger: Logger = None,
 ):
     kbmod_searcher = KBMODSearcher(
-        input_wu_filepath=input_wu,
+        wu_filepath=wu_filepath,
         search_config_filepath=search_config_filepath,
+        result_filepath=result_filepath,
         runtime_config=runtime_config,
-        output_filepath=result_file,
         logger=logger,
     )
 
@@ -35,11 +40,18 @@ def kbmod_search(
 
 
 class KBMODSearcher:
-    def __init__(self, input_wu_filepath, search_config_filepath, runtime_config, output_filepath, logger):
-        self.input_wu_filepath = input_wu_filepath
+    def __init__(
+        self,
+        wu_filepath: str = None,
+        search_config_filepath: str = None,
+        result_filepath: str = None,
+        runtime_config: dict = {},
+        logger: Logger = None,
+    ):
+        self.input_wu_filepath = wu_filepath
         self.search_config_filepath = search_config_filepath
         self.runtime_config = runtime_config
-        self.output_filepath = output_filepath
+        self.output_filepath = result_filepath
         self.logger = logger
 
     def run_search(self):
@@ -68,9 +80,9 @@ class KBMODSearcher:
         res = kbmod.run_search.SearchRunner().run_search_from_work_unit(wu)
 
         self.logger.info("Search complete")
-        self.logger.info(f"Search results: {res}")
+        self.logger.info(f"Search results: {res}")  # ! Should this be logged to a file ???
 
-        self.logger.info("writing results table")
+        self.logger.info(f"Writing results to output file: {self.output_filepath}")
         res.write_table(self.output_filepath)
 
         return self.output_filepath
