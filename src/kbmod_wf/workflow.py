@@ -10,7 +10,11 @@ from kbmod_wf.utilities.executor_utilities import get_executors
 from kbmod_wf.utilities.logger_utilities import configure_logger
 
 
-@python_app(executors=get_executors(["local_dev_testing", "local_thread"]))
+@python_app(
+    cache=True,
+    executors=get_executors(["local_dev_testing", "local_thread"]),
+    ignore_for_cache=["logging_file"],
+)
 def create_uri_manifest(inputs=[], outputs=[], config={}, logging_file=None):
     """This app will go to a given directory, find all of the uri.lst files there,
     and copy the paths to the manifest file."""
@@ -46,7 +50,9 @@ def create_uri_manifest(inputs=[], outputs=[], config={}, logging_file=None):
     return outputs[0]
 
 
-@python_app(executors=get_executors(["local_dev_testing", "small_cpu"]))
+@python_app(
+    cache=True, executors=get_executors(["local_dev_testing", "small_cpu"]), ignore_for_cache=["logging_file"]
+)
 def read_and_log(inputs=[], outputs=[], logging_file=None):
     """THIS IS A PLACEHOLDER FUNCTION THAT WILL BE REMOVED SOON"""
     from kbmod_wf.utilities.logger_utilities import configure_logger
@@ -64,7 +70,9 @@ def read_and_log(inputs=[], outputs=[], logging_file=None):
     return outputs[0]
 
 
-@python_app(executors=get_executors(["local_dev_testing", "small_cpu"]))
+@python_app(
+    cache=True, executors=get_executors(["local_dev_testing", "small_cpu"]), ignore_for_cache=["logging_file"]
+)
 def uri_to_ic(inputs=[], outputs=[], logging_file=None):
     from kbmod_wf.utilities.logger_utilities import configure_logger
     from kbmod_wf.task_impls.uri_to_ic import uri_to_ic
@@ -83,7 +91,9 @@ def uri_to_ic(inputs=[], outputs=[], logging_file=None):
     return outputs[0]
 
 
-@python_app(executors=get_executors(["local_dev_testing", "small_cpu"]))
+@python_app(
+    cache=True, executors=get_executors(["local_dev_testing", "small_cpu"]), ignore_for_cache=["logging_file"]
+)
 def ic_to_wu(inputs=[], outputs=[], logging_file=None):
     from kbmod_wf.utilities.logger_utilities import configure_logger
     from kbmod_wf.task_impls.ic_to_wu import ic_to_wu
@@ -97,7 +107,9 @@ def ic_to_wu(inputs=[], outputs=[], logging_file=None):
     return outputs[0]
 
 
-@python_app(executors=get_executors(["local_dev_testing", "small_cpu"]))
+@python_app(
+    cache=True, executors=get_executors(["local_dev_testing", "small_cpu"]), ignore_for_cache=["logging_file"]
+)
 def reproject_wu(inputs=[], outputs=[], logging_file=None):
     from kbmod_wf.utilities.logger_utilities import configure_logger
     from kbmod_wf.task_impls.reproject_wu import reproject_wu
@@ -111,7 +123,9 @@ def reproject_wu(inputs=[], outputs=[], logging_file=None):
     return outputs[0]
 
 
-@python_app(executors=get_executors(["local_dev_testing", "small_cpu"]))
+@python_app(
+    cache=True, executors=get_executors(["local_dev_testing", "small_cpu"]), ignore_for_cache=["logging_file"]
+)
 def kbmod_search(inputs=[], outputs=[], logging_file=None):
     from kbmod_wf.utilities.logger_utilities import configure_logger
     from kbmod_wf.task_impls.kbmod_search import kbmod_search
@@ -125,19 +139,18 @@ def kbmod_search(inputs=[], outputs=[], logging_file=None):
     return outputs[0]
 
 
-def workflow_runner(env: str = None, runtime_config: dict = None) -> None:
+def workflow_runner(env: str = None, runtime_config: dict = {}) -> None:
     resource_config = get_resource_config(env=env)
+    resource_config = apply_runtime_updates(resource_config, runtime_config)
 
-    if runtime_config is not None:
-        resource_config = apply_runtime_updates(resource_config, runtime_config)
-        app_configs = runtime_config.get("apps", {})
+    app_configs = runtime_config.get("apps", {})
 
     with parsl.load(resource_config) as dfk:
         logging_file = File(os.path.join(dfk.run_dir, "parsl.log"))
         logger = configure_logger("workflow.workflow_runner", logging_file.filepath)
 
         if runtime_config is not None:
-            logger.info(f"Using runtime configuration defintion:\n{toml.dumps(runtime_config)}")
+            logger.info(f"Using runtime configuration definition:\n{toml.dumps(runtime_config)}")
 
         logger.info("Starting workflow")
 
@@ -162,39 +175,39 @@ def workflow_runner(env: str = None, runtime_config: dict = None) -> None:
                     )
                 )
 
-            # create an original WorkUnit for each .ecsv file
-            original_work_unit_futures = []
-            for f in uri_to_ic_futures:
-                original_work_unit_futures.append(
-                    ic_to_wu(
+        # create an original WorkUnit for each .ecsv file
+        original_work_unit_futures = []
+        for f in uri_to_ic_futures:
+            original_work_unit_futures.append(
+                ic_to_wu(
+                    inputs=[f.result()],
+                    outputs=[File(f.result().filepath + ".wu")],
+                    logging_file=logging_file,
+                )
+            )
+
+        # reproject each WorkUnit for a range of distances
+        reproject_futures = []
+        for f in original_work_unit_futures:
+            for distance in range(40, 60, 10):
+                reproject_futures.append(
+                    reproject_wu(
                         inputs=[f.result()],
-                        outputs=[File(f.result().filepath + ".wu")],
+                        outputs=[File(f.result().filepath + f".{distance}.repro")],
                         logging_file=logging_file,
                     )
                 )
 
-            # reproject each WorkUnit for a range of distances
-            reproject_futures = []
-            for f in original_work_unit_futures:
-                for distance in range(40, 60, 10):
-                    reproject_futures.append(
-                        reproject_wu(
-                            inputs=[f.result()],
-                            outputs=[File(f.result().filepath + f".{distance}.repro")],
-                            logging_file=logging_file,
-                        )
-                    )
-
-            # run kbmod search on each reprojected WorkUnit
-            search_futures = []
-            for f in reproject_futures:
-                search_futures.append(
-                    kbmod_search(
-                        inputs=[f.result()],
-                        outputs=[File(f.result().filepath + ".search")],
-                        logging_file=logging_file,
-                    )
+        # run kbmod search on each reprojected WorkUnit
+        search_futures = []
+        for f in reproject_futures:
+            search_futures.append(
+                kbmod_search(
+                    inputs=[f.result()],
+                    outputs=[File(f.result().filepath + ".search")],
+                    logging_file=logging_file,
                 )
+            )
 
         [f.result() for f in search_futures]
 
@@ -221,6 +234,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # if a runtime_config file was provided and exists, load the toml as a dict.
+    runtime_config = {}
     if args.runtime_config is not None and os.path.exists(args.runtime_config):
         with open(args.runtime_config, "r") as toml_runtime_config:
             runtime_config = toml.load(toml_runtime_config)

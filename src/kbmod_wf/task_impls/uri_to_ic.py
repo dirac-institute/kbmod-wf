@@ -1,24 +1,25 @@
 import os
 import glob
+import time
 
-from kbmod import ImageCollection
+# from kbmod import ImageCollection
 
 
-# def uri_to_ic(target_uris_file_path=None, uris_base_dir=None, ic_output_file_path=None, logger=None):
-#     with open(target_uris_file_path, "r") as f:
-#         for line in f:
-#             value = line.strip()
-#             logger.info(line.strip())
+def uri_to_ic(target_uris_file_path=None, uris_base_dir=None, ic_output_file_path=None, logger=None):
+    with open(target_uris_file_path, "r") as f:
+        for line in f:
+            value = line.strip()
+            logger.info(line.strip())
 
-#     with open(ic_output_file_path, "w") as f:
-#         f.write(f"Logged: {value}")
+    with open(ic_output_file_path, "w") as f:
+        f.write(f"Logged: {value} - {time.time()}\n")
 
-#     return ic_output_file_path
+    return ic_output_file_path
 
 
 #! I believe that we can remove the `uris_base_dir` parameter from the function
 #! signature. It doesn't seem to be used in practice.
-def uri_to_ic(target_uris_file_path=None, uris_base_dir=None, ic_output_file_path=None, logger=None):
+def no_uri_to_ic(target_uris_file_path=None, uris_base_dir=None, ic_output_file_path=None, logger=None):
     """For each URI in the target_uris_file, perform string cleaning and build a
     file path. Then create an ImageCollection object with the final file paths
     and write the ImageCollection to a file.
@@ -85,7 +86,7 @@ def uri_to_ic(target_uris_file_path=None, uris_base_dir=None, ic_output_file_pat
 
     logger.info("Creating ImageCollection")
     # Create an ImageCollection object from the list of URIs
-    ic = ImageCollection.fromTargets(uris)
+    # ic = ImageCollection.fromTargets(uris)
 
     logger.info(f"Writing ImageCollection to file {ic_output_file_path}")
-    ic.write(ic_output_file_path, format="ascii.ecsv")
+    # ic.write(ic_output_file_path, format="ascii.ecsv")

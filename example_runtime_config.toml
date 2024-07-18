@@ -3,7 +3,7 @@
 # calling parsl.load(config). Even if the key does't exist in the resource
 # config, it will be added with the value defined here.
 [resource_config_modifiers]
-checkpoint_mode = "task_exit"
+checkpoint_mode = 'task_exit'
 
 
 # Values in the apps.XXX section will be passed as a dictionary to the corresponding
