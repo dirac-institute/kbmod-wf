@@ -15,7 +15,7 @@ from kbmod_wf.utilities.logger_utilities import configure_logger
     executors=get_executors(["local_dev_testing", "local_thread"]),
     ignore_for_cache=["logging_file"],
 )
-def create_uri_manifest(inputs=[], outputs=[], config={}, logging_file=None):
+def create_uri_manifest(inputs=[], outputs=[], runtime_config={}, logging_file=None):
     """This app will go to a given directory, find all of the uri.lst files there,
     and copy the paths to the manifest file."""
     import glob
@@ -24,7 +24,7 @@ def create_uri_manifest(inputs=[], outputs=[], config={}, logging_file=None):
 
     logger = configure_logger("task.create_uri_manifest", logging_file.filepath)
 
-    directory_path = config.get("staging_directory")
+    directory_path = runtime_config.get("staging_directory")
     if directory_path is None:
         raise ValueError("No staging_directory provided in the configuration.")
 
@@ -94,7 +94,7 @@ def ic_to_wu(inputs=[], outputs=[], runtime_config={}, logging_file=None):
 
 
 @python_app(
-    cache=True, executors=get_executors(["local_dev_testing", "small_cpu"]), ignore_for_cache=["logging_file"]
+    cache=True, executors=get_executors(["local_dev_testing", "large_mem"]), ignore_for_cache=["logging_file"]
 )
 def reproject_wu(inputs=[], outputs=[], runtime_config={}, logging_file=None):
     from kbmod_wf.utilities.logger_utilities import configure_logger
@@ -105,7 +105,7 @@ def reproject_wu(inputs=[], outputs=[], runtime_config={}, logging_file=None):
     logger.info("Starting reproject_ic")
     reproject_wu(
         original_wu_filepath=inputs[0].filepath,
-        uri_filepath=None,  # ! determine what, if any, value should be used.
+        uri_filepath=inputs[1].filepath,
         reprojected_wu_filepath=outputs[0].filepath,
         runtime_config=runtime_config,
         logger=logger,
@@ -116,7 +116,7 @@ def reproject_wu(inputs=[], outputs=[], runtime_config={}, logging_file=None):
 
 
 @python_app(
-    cache=True, executors=get_executors(["local_dev_testing", "small_cpu"]), ignore_for_cache=["logging_file"]
+    cache=True, executors=get_executors(["local_dev_testing", "gpu"]), ignore_for_cache=["logging_file"]
 )
 def kbmod_search(inputs=[], outputs=[], runtime_config={}, logging_file=None):
     from kbmod_wf.utilities.logger_utilities import configure_logger
@@ -156,18 +156,22 @@ def workflow_runner(env: str = None, runtime_config: dict = {}) -> None:
         create_uri_manifest_future = create_uri_manifest(
             inputs=[],
             outputs=[manifest_file],
-            config=app_configs.get("create_uri_manifest", {}),
+            runtime_config=app_configs.get("create_uri_manifest", {}),
             logging_file=logging_file,
         )
 
         with open(create_uri_manifest_future.result(), "r") as f:
             # process each .lst file in the manifest into a .ecvs file
             uri_to_ic_futures = []
+            uri_files = []
             for line in f:
+                uri_file = File(line.strip())
+                uri_files.append(uri_file)
                 uri_to_ic_futures.append(
                     uri_to_ic(
-                        inputs=[File(line.strip())],
+                        inputs=[uri_file],
                         outputs=[File(line + ".ecsv")],
+                        runtime_config=app_configs.get("uri_to_ic", {}),
                         logging_file=logging_file,
                     )
                 )
@@ -179,18 +183,20 @@ def workflow_runner(env: str = None, runtime_config: dict = {}) -> None:
                 ic_to_wu(
                     inputs=[f.result()],
                     outputs=[File(f.result().filepath + ".wu")],
+                    runtime_config=app_configs.get("ic_to_wu", {}),
                     logging_file=logging_file,
                 )
             )
 
         # reproject each WorkUnit for a range of distances
         reproject_futures = []
-        for f in original_work_unit_futures:
+        for f, uri_file in zip(original_work_unit_futures, uri_files):
             for distance in range(40, 60, 10):
                 reproject_futures.append(
                     reproject_wu(
-                        inputs=[f.result()],
+                        inputs=[f.result(), uri_file],
                         outputs=[File(f.result().filepath + f".{distance}.repro")],
+                        runtime_config=app_configs.get("reproject_wu", {}),
                         logging_file=logging_file,
                     )
                 )
@@ -202,6 +208,7 @@ def workflow_runner(env: str = None, runtime_config: dict = {}) -> None:
                 kbmod_search(
                     inputs=[f.result()],
                     outputs=[File(f.result().filepath + ".search")],
+                    runtime_config=app_configs.get("kbmod_search", {}),
                     logging_file=logging_file,
                 )
             )
