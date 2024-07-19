@@ -12,3 +12,12 @@ checkpoint_mode = 'task_exit'
 # The path to the staging directory
 # e.g. "/gscratch/dirac/kbmod/workflow/staging"
 staging_directory = "/home/drew/code/kbmod-wf/dev_staging"
+
+[apps.reproject_wu]
+# The name of the observation site to use for reflex correction
+observation_site = "ctio"
+
+[apps.kbmod_search]
+# The path to the KBMOD search config file
+# e.g. "/gscratch/dirac/kbmod/workflow/kbmod_search_config.yaml"
+search_config_filepath = "/home/drew/code/kbmod-wf/dev_staging/search_config.yaml"

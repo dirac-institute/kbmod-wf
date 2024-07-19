@@ -32,6 +32,29 @@ def reproject_wu(
     runtime_config: dict = {},
     logger: Logger = None,
 ):
+    """This task will perform reflex correction and reproject a WorkUnit to a common WCS.
+
+    Parameters
+    ----------
+    original_wu_filepath : str, optional
+        The fully resolved filepath to the input WorkUnit file, by default None
+    uri_filepath : str, optional
+        The fully resolved filepath to the original uri file. This is used
+        exclusively for the header contents, by default None
+    reprojected_wu_filepath : str, optional
+        The fully resolved filepath to the resulting WorkUnit file after reflex
+        and reprojection, by default None
+    runtime_config : dict, optional
+        Additional configuration parameters to be used at runtime, by default {}
+    logger : Logger, optional
+        Primary logger for the workflow, by default None
+
+    Returns
+    -------
+    str
+        The fully resolved filepath of the resulting WorkUnit file after reflex
+        and reprojection.
+    """
     wu_reprojector = WUReprojector(
         original_wu_filepath=original_wu_filepath,
         uri_filepath=uri_filepath,
@@ -64,19 +87,13 @@ class WUReprojector:
         # Default to 8 workers if not in the config. Value must be 0<num workers<65.
         self.n_workers = np.max(1, np.min(self.runtime_config.get("n_workers", 8), 64))
 
-        # ! Decide if we want these from a runtime_config or exclusively read from the uri file
-        self.patch_corners = self.runtime_config.get("patch_corners", None)
-        self.guess_dist = self.runtime_config.get("guess_dist", None)
-        self.pixel_scale = self.runtime_config.get("pixel_scale", None)
-
-        # ! Decide if we want these from a runtime_config or calculate each time based on self.uri_params
-        self.image_width = self.runtime_config.get("image_width", None)
-        self.image_height = self.runtime_config.get("image_height", None)
-
         self.uri_params = self._get_params_from_uri_file(uri_file=self.uri_file)
-
-        self.pixel_scale = self.uri_params["pixel_scale"]
         self.patch_size = self.uri_params["patch_size"]
+        self.pixel_scale = self.uri_params["pixel_scale"]
+        self.guess_dist = self.uri_params["dist_au"]  # ! Let's update the terminology here to be consistent.
+        self.patch_corners = self.uri_params[
+            "patch_box"
+        ]  # ! Let's update the terminology here to be consistent.
 
         # handle image dimensions
         if self.image_width == None or self.image_height == None:
@@ -94,24 +111,16 @@ class WUReprojector:
             pixel_scale_arcsec_per_pix=self.pixel_scale,
         )
 
-        self.point_on_earth = EarthLocation(1814303.74553723, -5214365.7436216, -3187340.56598756, unit="m")
+        self.point_on_earth = EarthLocation.of_site(self.runtime_config.get("observation_site", "ctio"))
 
     def reproject_workunit(self):
-        self.logger.debug(f"Creating WCS from patch")
-
         # Create a WCS object for the patch. This will be our common reprojection WCS
-        patch_fits_name = f"patch.fits"
-        if "patch_id" in self.uri_params:
-            patch_fits_name = f"patch_{self.uri_params['patch_id']}.fits"
-
-        # ! TODO: Need to figure out what to do with args.result_dir here. Pass `filename` as an parsl.output?
-        # ! Also, the _create_wcs_from_corners function doesn't make use of all the self.<variables> available to it.
+        self.logger.debug(f"Creating WCS from patch")
         patch_wcs = self._create_wcs_from_corners(
             self.patch_corners,
             self.image_width,
             self.image_height,
             pixel_scale=self.pixel_scale,
-            filename=os.path.join(args.result_dir, patch_fits_name),
         )
 
         self.logger.info(f"Reading existing WorkUnit from disk: {self.original_wu_filepath}")
@@ -209,31 +218,36 @@ class WUReprojector:
         return results
 
     def _patch_arcmin_to_pixels(self, patch_size_arcmin, pixel_scale_arcsec_per_pix):
-        """
-        Take an array of two dimensions, in arcminutes, and convert this to pixels using the supplied pixel scale (in arcseconds per pixel).
-        6/6/2024 COC
-        """
-        x_pixels = int(np.ceil((patch_size_arcmin[0] * 60) / pixel_scale_arcsec_per_pix))
-        y_pixels = int(np.ceil((patch_size_arcmin[1] * 60) / pixel_scale_arcsec_per_pix))
+        """Take an array of two dimensions, in arcminutes, and convert this to
+        pixels using the supplied pixel scale (in arcseconds per pixel).
 
-        # ! TODO, can't the above lines be changed to the following?
-        # ! And thereby eliminate the to input parameters to the function?
-        # patch_pixels = int(np.ceil(self.patch_size * 60 / self.pixel_scale))
+        Parameters
+        ----------
+        patch_size_arcmin : nd.array
+            A 2d array with shape (2,1) containing the width and height of the
+            patch in arcminutes.
+        pixel_scale_arcsec_per_pix : float
+            The pixel scale in arcseconds per pixel.
 
-        patch_pixels = [x_pixels, y_pixels]
+        Returns
+        -------
+        nd.array
+            A 2d array with shape (2,1) containing the width and height of the
+            patch in pixels.
+        """
+        patch_pixels = int(np.ceil(self.patch_size * 60 / self.pixel_scale))
 
         self.logger.debug(
             f"Derived patch_pixels (w, h) = {patch_pixels} from patch_size_arcmin={patch_size_arcmin} and pixel_scale_arcsec_per_pix={pixel_scale_arcsec_per_pix}."
         )
 
-        return x_pixels, y_pixels
+        return patch_pixels
 
     def _create_wcs_from_corners(
         self,
         corners=None,
         image_width=None,
         image_height=None,
-        filename="output.fits",
         pixel_scale=None,
         verbose=True,
     ):
@@ -301,11 +315,5 @@ class WUReprojector:
         # Define coordinate frame and projection
         wcs.wcs.ctype = ["RA---TAN", "DEC--TAN"]
         wcs.array_shape = (image_height, image_width)
-
-        # Create a new FITS file with the WCS information and a dummy data array
-        hdu = fits.PrimaryHDU(data=np.ones((image_height, image_width)), header=wcs.to_header())
-        hdulist = fits.HDUList([hdu])
-        hdulist.writeto(filename, overwrite=True)
-        self.logger.debug(f"Saved FITS file with WCS to {filename}")
 
         return wcs

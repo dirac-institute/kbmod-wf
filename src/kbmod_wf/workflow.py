@@ -127,7 +127,6 @@ def kbmod_search(inputs=[], outputs=[], runtime_config={}, logging_file=None):
     logger.info("Starting kbmod_search")
     kbmod_search(
         wu_filepath=inputs[0].filepath,
-        search_config_filepath=None,  # ! determine what, if any, value should be used.
         result_filepath=outputs[0].filepath,
         runtime_config=runtime_config,
         logger=logger,

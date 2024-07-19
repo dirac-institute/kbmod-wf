@@ -23,6 +23,24 @@ def placeholder_ic_to_wu(ic_file=None, wu_file=None, logger=None):
 def ic_to_wu(
     ic_filepath: str = None, wu_filepath: str = None, runtime_config: dict = {}, logger: Logger = None
 ):
+    """This task will convert an ImageCollection to a WorkUnit.
+
+    Parameters
+    ----------
+    ic_filepath : str, optional
+        The fully resolved filepath to the input ImageCollection file, by default None
+    wu_filepath : str, optional
+        The fully resolved filepath for the output WorkUnit file, by default None
+    runtime_config : dict, optional
+        Additional configuration parameters to be used at runtime, by default {}
+    logger : Logger, optional
+        Primary logger for the workflow, by default None
+
+    Returns
+    -------
+    str
+        The fully resolved filepath of the output WorkUnit file.
+    """
     ic_to_wu_converter = ICtoWUConverter(
         ic_filepath=ic_filepath, wu_filepath=wu_filepath, runtime_config=runtime_config, logger=logger
     )
