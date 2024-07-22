@@ -7,8 +7,8 @@ from parsl.utils import get_all_checkpoints
 
 walltimes = {
     "compute_bigmem": "01:00:00",
-    "large_mem": "08:00:00",
-    "gpu_max": "04:00:00",
+    "large_mem": "12:00:00",
+    "gpu_max": "12:00:00",
 }
 
 
@@ -61,7 +61,7 @@ def klone_resource_config():
                 label="gpu",
                 available_accelerators=2,
                 provider=SlurmProvider(
-                    partition="gpu_a40",
+                    partition="gpu-a40",
                     account="escience",
                     min_blocks=0,
                     max_blocks=2,

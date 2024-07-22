@@ -62,7 +62,7 @@ class ICtoWUConverter:
         self.logger = logger
 
         self.overwrite = self.runtime_config.get("overwrite", False)
-        self.search_config = self.runtime_config.get("search_config", None)
+        self.search_config_filepath = self.runtime_config.get("search_config_filepath", None)
 
     def create_work_unit(self):
         make_wu = True
@@ -78,7 +78,7 @@ class ICtoWUConverter:
             self.logger.info(f"ImageCollection read from {self.ic_filepath}, creating work unit next.")
 
             last_time = time.time()
-            orig_wu = ic.toWorkUnit(config=SearchConfiguration.from_file(self.search_config))
+            orig_wu = ic.toWorkUnit(config=SearchConfiguration.from_file(self.search_config_filepath))
             elapsed = round(time.time() - last_time, 1)
             self.logger.debug(f"Required {elapsed}[s] to create WorkUnit.")
 
