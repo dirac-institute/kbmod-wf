@@ -121,6 +121,7 @@ class WUReprojector:
             pixel_scale=self.pixel_scale,
         )
 
+        last_time = time.time()
         self.logger.info(f"Reading existing WorkUnit from disk: {self.original_wu_filepath}")
         orig_wu = WorkUnit.from_fits(self.original_wu_filepath)
         elapsed = round(time.time() - last_time, 1)
