@@ -79,7 +79,7 @@ def klone_resource_config():
             HighThroughputExecutor(
                 label="local_thread",
                 provider=LocalProvider(
-                    init_blocks=1,
+                    init_blocks=0,
                     max_blocks=1,
                 ),
             ),
