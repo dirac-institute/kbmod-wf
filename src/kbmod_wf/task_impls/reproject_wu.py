@@ -87,7 +87,7 @@ class WUReprojector:
         # Default to 8 workers if not in the config. Value must be 0<num workers<65.
         self.n_workers = max(1, min(self.runtime_config.get("n_workers", 8), 64))
 
-        self.uri_params = self._get_params_from_uri_file(uri_file=self.uri_filepath)
+        self.uri_params = self._get_params_from_uri_file()
         self.patch_size = self.uri_params["patch_size"]
         self.pixel_scale = self.uri_params["pixel_scale"]
         self.guess_dist = self.uri_params["dist_au"]  # ! Let's update the terminology here to be consistent.
