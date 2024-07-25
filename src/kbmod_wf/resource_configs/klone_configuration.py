@@ -8,7 +8,7 @@ from parsl.utils import get_all_checkpoints
 walltimes = {
     "compute_bigmem": "01:00:00",
     "large_mem": "04:00:00",
-    "gpu_max": "12:00:00",
+    "gpu_max": "08:00:00",
 }
 
 
@@ -20,6 +20,7 @@ def klone_resource_config():
             os.path.join("/gscratch/dirac/kbmod/workflow/run_logs", datetime.date.today().isoformat())
         ),
         run_dir=os.path.join("/gscratch/dirac/kbmod/workflow/run_logs", datetime.date.today().isoformat()),
+        retries=1,
         executors=[
             HighThroughputExecutor(
                 label="small_cpu",
@@ -59,9 +60,8 @@ def klone_resource_config():
             ),
             HighThroughputExecutor(
                 label="gpu",
-                available_accelerators=1,
                 provider=SlurmProvider(
-                    partition="gpu-a40",
+                    partition="ckpt-g2",
                     account="escience",
                     min_blocks=0,
                     max_blocks=2,
@@ -69,11 +69,12 @@ def klone_resource_config():
                     parallelism=1,
                     nodes_per_block=1,
                     cores_per_node=4,  # perhaps should be 8???
-                    mem_per_node=128,  # In GB
+                    mem_per_node=512,  # In GB
                     exclusive=False,
                     walltime=walltimes["gpu_max"],
                     # Command to run before starting worker - i.e. conda activate <special_env>
                     worker_init="",
+                    scheduler_options="#SBATCH --gpus=1",
                 ),
             ),
             HighThroughputExecutor(
