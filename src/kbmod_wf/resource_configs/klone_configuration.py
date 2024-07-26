@@ -24,6 +24,7 @@ def klone_resource_config():
         executors=[
             HighThroughputExecutor(
                 label="small_cpu",
+                max_workers_per_node=1,
                 provider=SlurmProvider(
                     partition="compute-bigmem",
                     account="astro",
@@ -42,6 +43,7 @@ def klone_resource_config():
             ),
             HighThroughputExecutor(
                 label="large_mem",
+                max_workers_per_node=1,
                 provider=SlurmProvider(
                     partition="ckpt-g2",
                     account="astro",
@@ -60,6 +62,8 @@ def klone_resource_config():
             ),
             HighThroughputExecutor(
                 label="gpu",
+                available_accelerators=1,
+                max_workers_per_node=1,
                 provider=SlurmProvider(
                     partition="ckpt-g2",
                     account="escience",
@@ -68,7 +72,7 @@ def klone_resource_config():
                     init_blocks=0,
                     parallelism=1,
                     nodes_per_block=1,
-                    cores_per_node=4,  # perhaps should be 8???
+                    cores_per_node=2,  # perhaps should be 8???
                     mem_per_node=512,  # In GB
                     exclusive=False,
                     walltime=walltimes["gpu_max"],
