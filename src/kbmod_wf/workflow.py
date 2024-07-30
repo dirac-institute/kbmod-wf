@@ -73,7 +73,7 @@ def uri_to_ic(inputs=[], outputs=[], runtime_config={}, logging_file=None):
 
 
 @python_app(
-    cache=True, executors=get_executors(["local_dev_testing", "small_cpu"]), ignore_for_cache=["logging_file"]
+    cache=True, executors=get_executors(["local_dev_testing", "large_mem"]), ignore_for_cache=["logging_file"]
 )
 def ic_to_wu(inputs=[], outputs=[], runtime_config={}, logging_file=None):
     from kbmod_wf.utilities.logger_utilities import configure_logger

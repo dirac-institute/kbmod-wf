@@ -85,9 +85,9 @@ class WUReprojector:
         self.search_config = self.runtime_config.get("search_config", None)
 
         # Default to 8 workers if not in the config. Value must be 0<num workers<65.
-        self.n_workers = np.max(1, np.min(self.runtime_config.get("n_workers", 8), 64))
+        self.n_workers = max(1, min(self.runtime_config.get("n_workers", 8), 64))
 
-        self.uri_params = self._get_params_from_uri_file(uri_file=self.uri_file)
+        self.uri_params = self._get_params_from_uri_file()
         self.patch_size = self.uri_params["patch_size"]
         self.pixel_scale = self.uri_params["pixel_scale"]
         self.guess_dist = self.uri_params["dist_au"]  # ! Let's update the terminology here to be consistent.
@@ -95,16 +95,14 @@ class WUReprojector:
             "patch_box"
         ]  # ! Let's update the terminology here to be consistent.
 
-        # handle image dimensions
-        if self.image_width == None or self.image_height == None:
-            if "patch_size" not in self.uri_params:
-                raise KeyError(
-                    f"Must supply image dimensions (image_width, image_height) or #patch_size= must be in a specified URI file."
-                )
-            if self.pixel_scale == None:
-                raise KeyError(
-                    f"When patch pixel dimensions are not specifified, the user must supply a pixel scale via the command line or the uri file."
-                )
+        if "patch_size" not in self.uri_params:
+            raise KeyError(
+                f"Must supply image dimensions (image_width, image_height) or #patch_size= must be in a specified URI file."
+            )
+        if self.pixel_scale == None:
+            raise KeyError(
+                f"When patch pixel dimensions are not specifified, the user must supply a pixel scale via the command line or the uri file."
+            )
 
         self.image_width, self.image_height = self._patch_arcmin_to_pixels(
             patch_size_arcmin=self.patch_size,
@@ -123,6 +121,7 @@ class WUReprojector:
             pixel_scale=self.pixel_scale,
         )
 
+        last_time = time.time()
         self.logger.info(f"Reading existing WorkUnit from disk: {self.original_wu_filepath}")
         orig_wu = WorkUnit.from_fits(self.original_wu_filepath)
         elapsed = round(time.time() - last_time, 1)
@@ -217,17 +216,9 @@ class WUReprojector:
                 results[lhs] = rhs
         return results
 
-    def _patch_arcmin_to_pixels(self, patch_size_arcmin, pixel_scale_arcsec_per_pix):
-        """Take an array of two dimensions, in arcminutes, and convert this to
-        pixels using the supplied pixel scale (in arcseconds per pixel).
-
-        Parameters
-        ----------
-        patch_size_arcmin : nd.array
-            A 2d array with shape (2,1) containing the width and height of the
-            patch in arcminutes.
-        pixel_scale_arcsec_per_pix : float
-            The pixel scale in arcseconds per pixel.
+    def _patch_arcmin_to_pixels(self):
+        """Operate on the self.patch_size array (with size (2,1)) to convert to
+        pixels. Uses self.pixel_scale to do the conversion.
 
         Returns
         -------
@@ -235,10 +226,10 @@ class WUReprojector:
             A 2d array with shape (2,1) containing the width and height of the
             patch in pixels.
         """
-        patch_pixels = int(np.ceil(self.patch_size * 60 / self.pixel_scale))
+        patch_pixels = np.ceil(np.array(self.patch_size) * 60 / self.pixel_scale).astype(int)
 
         self.logger.debug(
-            f"Derived patch_pixels (w, h) = {patch_pixels} from patch_size_arcmin={patch_size_arcmin} and pixel_scale_arcsec_per_pix={pixel_scale_arcsec_per_pix}."
+            f"Derived patch_pixels (w, h) = {patch_pixels} from patch_size={self.patch_size}[arcmin] and pixel_scale={self.pixel_scale}[arcsec/pixel]."
         )
 
         return patch_pixels
