@@ -62,7 +62,6 @@ def klone_resource_config():
             ),
             HighThroughputExecutor(
                 label="gpu",
-                available_accelerators=1,
                 max_workers_per_node=1,
                 provider=SlurmProvider(
                     partition="ckpt-g2",

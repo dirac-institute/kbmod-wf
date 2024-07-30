@@ -20,7 +20,7 @@ search_config_filepath = "/home/drew/code/kbmod-wf/dev_staging/search_config.yam
 
 [apps.reproject_wu]
 # Number of processors to use for parallelizing the reprojection
-n_workers = 8
+n_workers = 32
 # The name of the observation site to use for reflex correction
 observation_site = "ctio"
 
