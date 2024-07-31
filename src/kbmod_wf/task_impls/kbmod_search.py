@@ -3,6 +3,7 @@ from kbmod.work_unit import WorkUnit
 
 import os
 import time
+import traceback
 from logging import Logger
 
 
@@ -92,8 +93,12 @@ class KBMODSearcher:
         wu.config = config
 
         self.logger.info("Running KBMOD search")
-        res = kbmod.run_search.SearchRunner().run_search_from_work_unit(wu)
-
+        try:
+            res = kbmod.run_search.SearchRunner().run_search_from_work_unit(wu)
+        except Exception as e:
+            self.logger.error(f"Error running KBMOD search: {e}")
+            self.logger.error(traceback.format_exc())
+            raise e
         self.logger.info("Search complete")
         self.logger.info(f"Number of results found: {len(res)}")
 
