@@ -26,7 +26,7 @@ def klone_resource_config():
                 label="small_cpu",
                 max_workers_per_node=1,
                 provider=SlurmProvider(
-                    partition="compute-bigmem",
+                    partition="ckpt-g2",
                     account="astro",
                     min_blocks=0,
                     max_blocks=4,
