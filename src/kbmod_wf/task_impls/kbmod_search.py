@@ -82,9 +82,11 @@ class KBMODSearcher:
         config = wu.config
 
         # Modify the work unit results to be what is specified in command line args
+        base_filename, _ = os.path.splitext(os.path.basename(self.result_filepath))
         input_parameters = {
             "res_filepath": self.results_directory,
             "result_filename": self.result_filepath,
+            "output_suffix": base_filename,
         }
         config.set_multiple(input_parameters)
 
@@ -93,12 +95,7 @@ class KBMODSearcher:
         wu.config = config
 
         self.logger.info("Running KBMOD search")
-        try:
-            res = kbmod.run_search.SearchRunner().run_search_from_work_unit(wu)
-        except Exception as e:
-            self.logger.error(f"Error running KBMOD search: {e}")
-            self.logger.error(traceback.format_exc())
-            raise e
+        res = kbmod.run_search.SearchRunner().run_search_from_work_unit(wu)
         self.logger.info("Search complete")
         self.logger.info(f"Number of results found: {len(res)}")
 

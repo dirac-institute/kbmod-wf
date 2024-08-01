@@ -136,6 +136,7 @@ def kbmod_search(inputs=[], outputs=[], runtime_config={}, logging_file=None):
     except Exception as e:
         logger.error(f"Error running kbmod_search: {e}")
         logger.error(traceback.format_exc())
+        raise e
     logger.warning("Completed kbmod_search")
 
     return outputs[0]
@@ -212,7 +213,7 @@ def workflow_runner(env: str = None, runtime_config: dict = {}) -> None:
             search_futures.append(
                 kbmod_search(
                     inputs=[f.result()],
-                    outputs=[File(f.result().filepath + ".search")],
+                    outputs=[File(f.result().filepath + ".search.ecsv")],
                     runtime_config=app_configs.get("kbmod_search", {}),
                     logging_file=logging_file,
                 )
