@@ -54,19 +54,25 @@ def create_uri_manifest(inputs=[], outputs=[], runtime_config={}, logging_file=N
     cache=True, executors=get_executors(["local_dev_testing", "small_cpu"]), ignore_for_cache=["logging_file"]
 )
 def uri_to_ic(inputs=[], outputs=[], runtime_config={}, logging_file=None):
+    import traceback
     from kbmod_wf.utilities.logger_utilities import configure_logger
     from kbmod_wf.task_impls.uri_to_ic import uri_to_ic
 
     logger = configure_logger("task.uri_to_ic", logging_file.filepath)
 
     logger.info("Starting uri_to_ic")
-    uri_to_ic(
-        uris_filepath=inputs[0].filepath,
-        uris_base_dir=None,  # determine what, if any, value should be used.
-        ic_filepath=outputs[0].filepath,
-        runtime_config=runtime_config,
-        logger=logger,
-    )
+    try:
+        uri_to_ic(
+            uris_filepath=inputs[0].filepath,
+            uris_base_dir=None,  # determine what, if any, value should be used.
+            ic_filepath=outputs[0].filepath,
+            runtime_config=runtime_config,
+            logger=logger,
+        )
+    except Exception as e:
+        logger.error(f"Error running uri_to_ic: {e}")
+        logger.error(traceback.format_exc())
+        raise e
     logger.warning("Completed uri_to_ic")
 
     return outputs[0]
@@ -76,18 +82,24 @@ def uri_to_ic(inputs=[], outputs=[], runtime_config={}, logging_file=None):
     cache=True, executors=get_executors(["local_dev_testing", "large_mem"]), ignore_for_cache=["logging_file"]
 )
 def ic_to_wu(inputs=[], outputs=[], runtime_config={}, logging_file=None):
+    import traceback
     from kbmod_wf.utilities.logger_utilities import configure_logger
     from kbmod_wf.task_impls.ic_to_wu import ic_to_wu
 
     logger = configure_logger("task.ic_to_wu", logging_file.filepath)
 
     logger.info("Starting ic_to_wu")
-    ic_to_wu(
-        ic_filepath=inputs[0].filepath,
-        wu_filepath=outputs[0].filepath,
-        runtime_config=runtime_config,
-        logger=logger,
-    )
+    try:
+        ic_to_wu(
+            ic_filepath=inputs[0].filepath,
+            wu_filepath=outputs[0].filepath,
+            runtime_config=runtime_config,
+            logger=logger,
+        )
+    except Exception as e:
+        logger.error(f"Error running ic_to_wu: {e}")
+        logger.error(traceback.format_exc())
+        raise e
     logger.warning("Completed ic_to_wu")
 
     return outputs[0]
@@ -97,19 +109,25 @@ def ic_to_wu(inputs=[], outputs=[], runtime_config={}, logging_file=None):
     cache=True, executors=get_executors(["local_dev_testing", "large_mem"]), ignore_for_cache=["logging_file"]
 )
 def reproject_wu(inputs=[], outputs=[], runtime_config={}, logging_file=None):
+    import traceback
     from kbmod_wf.utilities.logger_utilities import configure_logger
     from kbmod_wf.task_impls.reproject_wu import reproject_wu
 
     logger = configure_logger("task.reproject_wu", logging_file.filepath)
 
     logger.info("Starting reproject_ic")
-    reproject_wu(
-        original_wu_filepath=inputs[0].filepath,
-        uri_filepath=inputs[1].filepath,
-        reprojected_wu_filepath=outputs[0].filepath,
-        runtime_config=runtime_config,
-        logger=logger,
-    )
+    try:
+        reproject_wu(
+            original_wu_filepath=inputs[0].filepath,
+            uri_filepath=inputs[1].filepath,
+            reprojected_wu_filepath=outputs[0].filepath,
+            runtime_config=runtime_config,
+            logger=logger,
+        )
+    except Exception as e:
+        logger.error(f"Error running reproject_ic: {e}")
+        logger.error(traceback.format_exc())
+        raise e
     logger.warning("Completed reproject_ic")
 
     return outputs[0]
