@@ -3,6 +3,7 @@ from kbmod.work_unit import WorkUnit
 
 import os
 import time
+import traceback
 from logging import Logger
 
 
@@ -81,9 +82,11 @@ class KBMODSearcher:
         config = wu.config
 
         # Modify the work unit results to be what is specified in command line args
+        base_filename, _ = os.path.splitext(os.path.basename(self.result_filepath))
         input_parameters = {
             "res_filepath": self.results_directory,
             "result_filename": self.result_filepath,
+            "output_suffix": base_filename,
         }
         config.set_multiple(input_parameters)
 
@@ -93,7 +96,6 @@ class KBMODSearcher:
 
         self.logger.info("Running KBMOD search")
         res = kbmod.run_search.SearchRunner().run_search_from_work_unit(wu)
-
         self.logger.info("Search complete")
         self.logger.info(f"Number of results found: {len(res)}")
 

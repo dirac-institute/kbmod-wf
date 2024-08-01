@@ -119,18 +119,24 @@ def reproject_wu(inputs=[], outputs=[], runtime_config={}, logging_file=None):
     cache=True, executors=get_executors(["local_dev_testing", "gpu"]), ignore_for_cache=["logging_file"]
 )
 def kbmod_search(inputs=[], outputs=[], runtime_config={}, logging_file=None):
+    import traceback
     from kbmod_wf.utilities.logger_utilities import configure_logger
     from kbmod_wf.task_impls.kbmod_search import kbmod_search
 
     logger = configure_logger("task.kbmod_search", logging_file.filepath)
 
     logger.info("Starting kbmod_search")
-    kbmod_search(
-        wu_filepath=inputs[0].filepath,
-        result_filepath=outputs[0].filepath,
-        runtime_config=runtime_config,
-        logger=logger,
-    )
+    try:
+        kbmod_search(
+            wu_filepath=inputs[0].filepath,
+            result_filepath=outputs[0].filepath,
+            runtime_config=runtime_config,
+            logger=logger,
+        )
+    except Exception as e:
+        logger.error(f"Error running kbmod_search: {e}")
+        logger.error(traceback.format_exc())
+        raise e
     logger.warning("Completed kbmod_search")
 
     return outputs[0]
@@ -207,7 +213,7 @@ def workflow_runner(env: str = None, runtime_config: dict = {}) -> None:
             search_futures.append(
                 kbmod_search(
                     inputs=[f.result()],
-                    outputs=[File(f.result().filepath + ".search")],
+                    outputs=[File(f.result().filepath + ".search.ecsv")],
                     runtime_config=app_configs.get("kbmod_search", {}),
                     logging_file=logging_file,
                 )
