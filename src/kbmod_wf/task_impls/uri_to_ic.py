@@ -5,20 +5,6 @@ from logging import Logger
 from kbmod import ImageCollection
 
 
-def placeholder_uri_to_ic(
-    target_uris_file_path=None, uris_base_dir=None, ic_output_file_path=None, logger=None
-):
-    with open(target_uris_file_path, "r") as f:
-        for line in f:
-            value = line.strip()
-            logger.info(line.strip())
-
-    with open(ic_output_file_path, "w") as f:
-        f.write(f"Logged: {value} - {time.time()}\n")
-
-    return ic_output_file_path
-
-
 #! I believe that we can remove the `uris_base_dir` parameter from the function
 #! signature. It doesn't seem to be used in practice.
 def uri_to_ic(

@@ -2,24 +2,7 @@ import kbmod
 from kbmod.work_unit import WorkUnit
 
 import os
-import time
-import traceback
 from logging import Logger
-
-
-def placeholder_kbmod_search(input_wu=None, result_file=None, logger=None):
-    logger.info("In the kbmod_search task_impl")
-    with open(input_wu, "r") as f:
-        for line in f:
-            value = line.strip()
-            logger.info(line.strip())
-
-    time.sleep(5)
-
-    with open(result_file, "w") as f:
-        f.write(f"Logged: {value} - {time.time()}\n")
-
-    return result_file
 
 
 def kbmod_search(
@@ -72,9 +55,12 @@ class KBMODSearcher:
 
     def run_search(self):
         self.logger.info("Loading workunit from file")
-        wu = WorkUnit.from_fits(self.input_wu_filepath)
-
+        directory_containing_shards, wu_filename = os.path.split(self.original_wu_filepath)
+        wu = WorkUnit.from_sharded_fits(wu_filename, directory_containing_shards, lazy=False)
         self.logger.debug("Loaded work unit")
+
+        #! Seems odd that we extract, modify, and reset the config in the workunit.
+        #! Can we just modify the config in the workunit directly?
         if self.search_config_filepath is not None:
             # Load a search configuration, otherwise use the one loaded with the work unit
             wu.config = kbmod.configuration.SearchConfiguration.from_file(self.search_config_filepath)
@@ -90,8 +76,6 @@ class KBMODSearcher:
         }
         config.set_multiple(input_parameters)
 
-        # Save the search config in the results directory for record keeping
-        config.to_file(os.path.join(self.results_directory, "search_config.yaml"))
         wu.config = config
 
         self.logger.info("Running KBMOD search")

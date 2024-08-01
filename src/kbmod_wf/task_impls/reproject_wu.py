@@ -12,19 +12,6 @@ import time
 from logging import Logger
 
 
-def placeholder_reproject_wu(input_wu=None, reprojected_wu=None, logger=None):
-    logger.info("In the reproject_wu task_impl")
-    with open(input_wu, "r") as f:
-        for line in f:
-            value = line.strip()
-            logger.info(line.strip())
-
-    with open(reprojected_wu, "w") as f:
-        f.write(f"Logged: {value} - {time.time()}\n")
-
-    return reprojected_wu
-
-
 def reproject_wu(
     original_wu_filepath: str = None,
     uri_filepath: str = None,
@@ -122,22 +109,25 @@ class WUReprojector:
         )
 
         last_time = time.time()
-        self.logger.info(f"Reading existing WorkUnit from disk: {self.original_wu_filepath}")
-        orig_wu = WorkUnit.from_fits(self.original_wu_filepath)
+        self.logger.info(f"Lazy reading existing WorkUnit from disk: {self.original_wu_filepath}")
+        directory_containing_shards, wu_filename = os.path.split(self.original_wu_filepath)
+        wu = WorkUnit.from_sharded_fits(wu_filename, directory_containing_shards, lazy=True)
         elapsed = round(time.time() - last_time, 1)
-        self.logger.debug(f"Required {elapsed}[s] to read original WorkUnit {self.original_wu_filepath}.")
+        self.logger.debug(
+            f"Required {elapsed}[s] to lazy read original WorkUnit {self.original_wu_filepath}."
+        )
 
-        # gather elements needed for reproject phase
-        imgs = orig_wu.im_stack
+        #! This method to get image dimensions won't hold if the images are different sizes.
+        image_height, image_width = wu._per_image_wcs[0].array_shape
 
         # Find the EBD (estimated barycentric distance) WCS for each image
         last_time = time.time()
         ebd_per_image_wcs, geocentric_dists = transform_wcses_to_ebd(
-            orig_wu._per_image_wcs,
-            imgs.get_single_image(0).get_width(),
-            imgs.get_single_image(0).get_height(),
+            wu._per_image_wcs,
+            image_width,
+            image_height,
             self.guess_dist,
-            [astropy.time.Time(img.get_obstime(), format="mjd") for img in imgs.get_images()],
+            wu.get_all_obs_times(),
             self.point_on_earth,
             npoints=10,
             seed=None,
@@ -145,30 +135,26 @@ class WUReprojector:
         elapsed = round(time.time() - last_time, 1)
         self.logger.debug(f"Required {elapsed}[s] to transform WCS objects to EBD..")
 
-        if len(orig_wu._per_image_wcs) != len(ebd_per_image_wcs):
+        if len(wu._per_image_wcs) != len(ebd_per_image_wcs):
             raise ValueError(
-                f"Number of barycentric WCS objects ({len(ebd_per_image_wcs)}) does not match the original number of images ({len(orig_wu._per_image_wcs)})."
+                f"Number of barycentric WCS objects ({len(ebd_per_image_wcs)}) does not match the original number of images ({len(wu._per_image_wcs)})."
             )
 
-        # Construct a WorkUnit with the EBD WCS and provenance data
-        self.logger.debug(f"Creating Barycentric WorkUnit...")
-        last_time = time.time()
-        ebd_wu = WorkUnit(
-            im_stack=orig_wu.im_stack,
-            config=orig_wu.config,
-            per_image_wcs=orig_wu._per_image_wcs,
-            per_image_ebd_wcs=ebd_per_image_wcs,
-            heliocentric_distance=self.guess_dist,
-            geocentric_distances=geocentric_dists,
-        )
-        elapsed = round(time.time() - last_time, 1)
-        self.logger.debug(f"Required {elapsed}[s] to create EBD WorkUnit.")
+        wu._per_image_ebd_wcs = ebd_per_image_wcs
+        wu.heliocentric_distance = self.guess_dist
+        wu.geocentric_distances = geocentric_dists
 
         # Reproject to a common WCS using the WCS for our patch
         self.logger.debug(f"Reprojecting WorkUnit with {self.n_workers} workers...")
         last_time = time.time()
-        reprojected_wu = reprojection.reproject_work_unit(
-            ebd_wu, patch_wcs, frame="ebd", max_parallel_processes=self.n_workers
+
+        reprojected_wu = reprojection.reproject_lazy_work_unit(
+            wu,
+            patch_wcs,
+            directory_containing_shards,
+            wu_filename,
+            frame="ebd",
+            max_parallel_processes=self.n_workers,
         )
         elapsed = round(time.time() - last_time, 1)
         self.logger.debug(f"Required {elapsed}[s] to create the reprojected WorkUnit.")
