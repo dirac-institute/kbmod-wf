@@ -52,7 +52,7 @@ def klone_resource_config():
                     init_blocks=0,
                     parallelism=1,
                     nodes_per_block=1,
-                    cores_per_node=8,
+                    cores_per_node=32,
                     mem_per_node=512,
                     exclusive=False,
                     walltime=walltimes["large_mem"],
