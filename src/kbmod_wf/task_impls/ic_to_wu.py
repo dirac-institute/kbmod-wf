@@ -7,19 +7,6 @@ import time
 from logging import Logger
 
 
-def placeholder_ic_to_wu(ic_file=None, wu_file=None, logger=None):
-    logger.info("In the ic_to_wu task_impl")
-    with open(ic_file, "r") as f:
-        for line in f:
-            value = line.strip()
-            logger.info(line.strip())
-
-    with open(wu_file, "w") as f:
-        f.write(f"Logged: {value} - {time.time()}\n")
-
-    return wu_file
-
-
 def ic_to_wu(
     ic_filepath: str = None, wu_filepath: str = None, runtime_config: dict = {}, logger: Logger = None
 ):
@@ -78,13 +65,15 @@ class ICtoWUConverter:
             self.logger.info(f"ImageCollection read from {self.ic_filepath}, creating work unit next.")
 
             last_time = time.time()
-            orig_wu = ic.toWorkUnit(config=SearchConfiguration.from_file(self.search_config_filepath))
+            #! This needs the butler.
+            orig_wu = ic.toWorkUnit(search_config=SearchConfiguration.from_file(self.search_config_filepath))
             elapsed = round(time.time() - last_time, 1)
             self.logger.debug(f"Required {elapsed}[s] to create WorkUnit.")
 
-            self.logger.info(f"Saving original work unit to: {self.wu_filepath}")
+            self.logger.info(f"Saving sharded work unit to: {self.wu_filepath}")
             last_time = time.time()
-            orig_wu.to_fits(self.wu_filepath, overwrite=True)
+            directory_containing_shards, wu_filename = os.path.split(self.wu_filepath)
+            orig_wu.to_sharded_fits(wu_filename, directory_containing_shards, overwrite=True)
             elapsed = round(time.time() - last_time, 1)
             self.logger.debug(f"Required {elapsed}[s] to write WorkUnit to disk: {self.wu_filepath}")
 
