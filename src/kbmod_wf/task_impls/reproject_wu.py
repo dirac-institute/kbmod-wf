@@ -5,7 +5,7 @@ import kbmod.reprojection as reprojection
 from astropy.wcs import WCS
 from astropy.io import fits
 from astropy.coordinates import EarthLocation
-import astropy.time
+from astropy.time import Time
 import numpy as np
 import os
 import time
@@ -124,7 +124,7 @@ class WUReprojector:
             image_width,
             image_height,
             self.guess_dist,
-            wu.get_all_obstimes(),
+            Time(wu.get_all_obstimes(), format="mjd"),
             self.point_on_earth,
             npoints=10,
             seed=None,
