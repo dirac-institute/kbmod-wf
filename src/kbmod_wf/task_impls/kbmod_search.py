@@ -55,7 +55,7 @@ class KBMODSearcher:
 
     def run_search(self):
         self.logger.info("Loading workunit from file")
-        directory_containing_shards, wu_filename = os.path.split(self.original_wu_filepath)
+        directory_containing_shards, wu_filename = os.path.split(self.input_wu_filepath)
         wu = WorkUnit.from_sharded_fits(wu_filename, directory_containing_shards, lazy=False)
         self.logger.debug("Loaded work unit")
 
