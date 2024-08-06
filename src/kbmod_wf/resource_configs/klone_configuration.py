@@ -8,6 +8,7 @@ from parsl.utils import get_all_checkpoints
 walltimes = {
     "compute_bigmem": "01:00:00",
     "large_mem": "04:00:00",
+    "sharded_reproject": "04:00:00",
     "gpu_max": "08:00:00",
 }
 
@@ -56,6 +57,25 @@ def klone_resource_config():
                     mem_per_node=512,
                     exclusive=False,
                     walltime=walltimes["large_mem"],
+                    # Command to run before starting worker - i.e. conda activate <special_env>
+                    worker_init="",
+                ),
+            ),
+            HighThroughputExecutor(
+                label="sharded_reproject",
+                max_workers_per_node=1,
+                provider=SlurmProvider(
+                    partition="ckpt-g2",
+                    account="astro",
+                    min_blocks=0,
+                    max_blocks=2,
+                    init_blocks=0,
+                    parallelism=1,
+                    nodes_per_block=1,
+                    cores_per_node=32,
+                    mem_per_node=128,  # ~2-4 GB per core
+                    exclusive=False,
+                    walltime=walltimes["sharded_reproject"],
                     # Command to run before starting worker - i.e. conda activate <special_env>
                     worker_init="",
                 ),

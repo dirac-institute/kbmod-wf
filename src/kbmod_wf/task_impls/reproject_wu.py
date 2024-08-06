@@ -145,7 +145,7 @@ class WUReprojector:
         self.logger.debug(f"Reprojecting WorkUnit with {self.n_workers} workers...")
         last_time = time.time()
 
-        reprojected_wu = reprojection.reproject_lazy_work_unit(
+        reprojection.reproject_lazy_work_unit(
             wu,
             patch_wcs,
             directory_containing_shards,
@@ -154,16 +154,7 @@ class WUReprojector:
             max_parallel_processes=self.n_workers,
         )
         elapsed = round(time.time() - last_time, 1)
-        self.logger.debug(f"Required {elapsed}[s] to create the reprojected WorkUnit.")
-
-        # Save the reprojected WorkUnit
-        self.logger.debug(f"Saving reprojected work unit to: {self.reprojected_wu_filepath}")
-        last_time = time.time()
-        reprojected_wu.to_fits(self.reprojected_wu_filepath)
-        elapsed = round(time.time() - last_time, 1)
-        self.logger.debug(
-            f"Required {elapsed}[s] to create the reprojected WorkUnit: {self.reprojected_wu_filepath}"
-        )
+        self.logger.debug(f"Required {elapsed}[s] to create the sharded reprojected WorkUnit.")
 
         return self.reprojected_wu_filepath
 
