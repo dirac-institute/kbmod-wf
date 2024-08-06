@@ -145,11 +145,14 @@ class WUReprojector:
         self.logger.debug(f"Reprojecting WorkUnit with {self.n_workers} workers...")
         last_time = time.time()
 
+        directory_containing_reprojected_shards, reprojected_wu_filename = os.path.split(
+            self.reprojected_wu_filepath
+        )
         reprojection.reproject_lazy_work_unit(
             wu,
             patch_wcs,
-            directory_containing_shards,
-            wu_filename,
+            directory_containing_reprojected_shards,
+            reprojected_wu_filename,
             frame="ebd",
             max_parallel_processes=self.n_workers,
         )
