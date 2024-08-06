@@ -124,7 +124,7 @@ class WUReprojector:
             image_width,
             image_height,
             self.guess_dist,
-            wu.get_all_obs_times(),
+            wu.get_all_obstimes(),
             self.point_on_earth,
             npoints=10,
             seed=None,
