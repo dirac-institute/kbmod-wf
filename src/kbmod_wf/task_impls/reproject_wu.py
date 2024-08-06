@@ -91,10 +91,7 @@ class WUReprojector:
                 f"When patch pixel dimensions are not specifified, the user must supply a pixel scale via the command line or the uri file."
             )
 
-        self.image_width, self.image_height = self._patch_arcmin_to_pixels(
-            patch_size_arcmin=self.patch_size,
-            pixel_scale_arcsec_per_pix=self.pixel_scale,
-        )
+        self.image_width, self.image_height = self._patch_arcmin_to_pixels()
 
         self.point_on_earth = EarthLocation.of_site(self.runtime_config.get("observation_site", "ctio"))
 
