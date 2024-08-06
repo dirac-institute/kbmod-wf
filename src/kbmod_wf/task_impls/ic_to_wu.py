@@ -65,7 +65,8 @@ class ICtoWUConverter:
             self.logger.info(f"ImageCollection read from {self.ic_filepath}, creating work unit next.")
 
             last_time = time.time()
-            orig_wu = ic.toWorkUnit(config=SearchConfiguration.from_file(self.search_config_filepath))
+            #! This needs the butler.
+            orig_wu = ic.toWorkUnit(search_config=SearchConfiguration.from_file(self.search_config_filepath))
             elapsed = round(time.time() - last_time, 1)
             self.logger.debug(f"Required {elapsed}[s] to create WorkUnit.")
 
