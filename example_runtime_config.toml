@@ -13,16 +13,31 @@ checkpoint_mode = 'task_exit'
 # e.g. "/gscratch/dirac/kbmod/workflow/staging"
 staging_directory = "/home/drew/code/kbmod-wf/dev_staging"
 
+
+[apps.uri_to_ic]
+# The path to the butler config file that instantiate a butler to retrieve images
+butler_config_filepath = "/gscratch/dirac/DEEP/repo/butler.yaml"
+
+
 [apps.ic_to_wu]
 # The path to the KBMOD search config file
 # e.g. "/gscratch/dirac/kbmod/workflow/kbmod_search_config.yaml"
 search_config_filepath = "/home/drew/code/kbmod-wf/dev_staging/search_config.yaml"
 
+# The path to the butler config file that instantiate a butler to retrieve images
+butler_config_filepath = "/gscratch/dirac/DEEP/repo/butler.yaml"
+
+# Remove a previously created WU file if it exists
+overwrite = false
+
+
 [apps.reproject_wu]
 # Number of processors to use for parallelizing the reprojection
 n_workers = 32
+
 # The name of the observation site to use for reflex correction
 observation_site = "ctio"
+
 
 [apps.kbmod_search]
 # The path to the KBMOD search config file

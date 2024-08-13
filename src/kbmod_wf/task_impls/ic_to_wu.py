@@ -1,5 +1,6 @@
 from kbmod import ImageCollection
 from kbmod.configuration import SearchConfiguration
+from lsst.daf.butler import Butler
 
 import os
 import glob
@@ -52,7 +53,6 @@ class ICtoWUConverter:
         self.search_config_filepath = self.runtime_config.get("search_config_filepath", None)
 
     def create_work_unit(self):
-        make_wu = True
         if len(glob.glob(self.wu_filepath)):
             if self.overwrite:
                 self.logger.info(f"Overwrite was {self.overwrite}. Deleting existing {self.wu_filepath}.")
@@ -60,21 +60,27 @@ class ICtoWUConverter:
             else:
                 make_wu = False
 
-        if make_wu:
-            ic = ImageCollection.read(self.ic_filepath, format="ascii.ecsv")
-            self.logger.info(f"ImageCollection read from {self.ic_filepath}, creating work unit next.")
+        ic = ImageCollection.read(self.ic_filepath, format="ascii.ecsv")
+        self.logger.info(f"ImageCollection read from {self.ic_filepath}, creating work unit next.")
 
-            last_time = time.time()
-            #! This needs the butler.
-            orig_wu = ic.toWorkUnit(search_config=SearchConfiguration.from_file(self.search_config_filepath))
-            elapsed = round(time.time() - last_time, 1)
-            self.logger.debug(f"Required {elapsed}[s] to create WorkUnit.")
+        last_time = time.time()
+        self.logger.info("Creating butler instance")
+        this_butler = Butler(self.runtime_config.get("butler_config_filepath", None))
+        elapsed = round(time.time() - last_time, 1)
+        self.logger.debug(f"Required {elapsed}[s] to instantiate butler.")
 
-            self.logger.info(f"Saving sharded work unit to: {self.wu_filepath}")
-            last_time = time.time()
-            directory_containing_shards, wu_filename = os.path.split(self.wu_filepath)
-            orig_wu.to_sharded_fits(wu_filename, directory_containing_shards, overwrite=True)
-            elapsed = round(time.time() - last_time, 1)
-            self.logger.debug(f"Required {elapsed}[s] to write WorkUnit to disk: {self.wu_filepath}")
+        last_time = time.time()
+        orig_wu = ic.toWorkUnit(
+            search_config=SearchConfiguration.from_file(self.search_config_filepath), butler=this_butler
+        )
+        elapsed = round(time.time() - last_time, 1)
+        self.logger.debug(f"Required {elapsed}[s] to create WorkUnit.")
+
+        self.logger.info(f"Saving sharded work unit to: {self.wu_filepath}")
+        last_time = time.time()
+        directory_containing_shards, wu_filename = os.path.split(self.wu_filepath)
+        orig_wu.to_sharded_fits(wu_filename, directory_containing_shards, overwrite=True)
+        elapsed = round(time.time() - last_time, 1)
+        self.logger.debug(f"Required {elapsed}[s] to write WorkUnit to disk: {self.wu_filepath}")
 
         return self.wu_filepath
