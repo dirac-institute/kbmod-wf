@@ -1,0 +1,96 @@
+from kbmod.work_unit import WorkUnit
+
+import kbmod.reprojection as reprojection
+
+from astropy.reproject.mosaicking import find_optimal_celestial_wcs
+import os
+import time
+from logging import Logger
+
+
+def reproject_wu(
+    original_wu_filepath: str = None,
+    reprojected_wu_filepath: str = None,
+    runtime_config: dict = {},
+    logger: Logger = None,
+):
+    """This task will perform reflex correction and reproject a WorkUnit to a common WCS.
+
+    Parameters
+    ----------
+    original_wu_filepath : str, optional
+        The fully resolved filepath to the input WorkUnit file, by default None
+    uri_filepath : str, optional
+        The fully resolved filepath to the original uri file. This is used
+        exclusively for the header contents, by default None
+    reprojected_wu_filepath : str, optional
+        The fully resolved filepath to the resulting WorkUnit file after reflex
+        and reprojection, by default None
+    runtime_config : dict, optional
+        Additional configuration parameters to be used at runtime, by default {}
+    logger : Logger, optional
+        Primary logger for the workflow, by default None
+
+    Returns
+    -------
+    str
+        The fully resolved filepath of the resulting WorkUnit file after reflex
+        and reprojection.
+    """
+    wu_reprojector = WUReprojector(
+        original_wu_filepath=original_wu_filepath,
+        reprojected_wu_filepath=reprojected_wu_filepath,
+        runtime_config=runtime_config,
+        logger=logger,
+    )
+
+    return wu_reprojector.reproject_workunit()
+
+
+class WUReprojector:
+    def __init__(
+        self,
+        original_wu_filepath: str = None,
+        reprojected_wu_filepath: str = None,
+        runtime_config: dict = {},
+        logger: Logger = None,
+    ):
+        self.original_wu_filepath = original_wu_filepath
+        self.reprojected_wu_filepath = reprojected_wu_filepath
+        self.runtime_config = runtime_config
+        self.logger = logger
+
+        # Default to 8 workers if not in the config. Value must be 0<num workers<65.
+        self.n_workers = max(1, min(self.runtime_config.get("n_workers", 8), 64))
+
+    def reproject_workunit(self):
+        last_time = time.time()
+        self.logger.info(f"Lazy reading existing WorkUnit from disk: {self.original_wu_filepath}")
+        directory_containing_shards, wu_filename = os.path.split(self.original_wu_filepath)
+        wu = WorkUnit.from_sharded_fits(wu_filename, directory_containing_shards, lazy=True)
+        elapsed = round(time.time() - last_time, 1)
+        self.logger.debug(
+            f"Required {elapsed}[s] to lazy read original WorkUnit {self.original_wu_filepath}."
+        )
+
+        directory_containing_reprojected_shards, reprojected_wu_filename = os.path.split(
+            self.reprojected_wu_filepath
+        )
+
+        # Reproject to a common WCS using the WCS for our patch
+        self.logger.debug(f"Reprojecting WorkUnit with {self.n_workers} workers...")
+        last_time = time.time()
+
+        opt_wcs, _ = find_optimal_celestial_wcs(list(wu._per_image_wcs))
+        reprojection.reproject_lazy_work_unit(
+            wu,
+            opt_wcs,
+            directory_containing_reprojected_shards,
+            reprojected_wu_filename,
+            max_parallel_processes=self.n_workers,
+        )
+
+        elapsed = round(time.time() - last_time, 1)
+        self.logger.debug(f"Required {elapsed}[s] to create the sharded reprojected WorkUnit.")
+
+        return self.reprojected_wu_filepath

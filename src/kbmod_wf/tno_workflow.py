@@ -118,7 +118,7 @@ def ic_to_wu(inputs=[], outputs=[], runtime_config={}, logging_file=None):
 def reproject_wu(inputs=[], outputs=[], runtime_config={}, logging_file=None):
     import traceback
     from kbmod_wf.utilities.logger_utilities import configure_logger
-    from kbmod_wf.task_impls.reproject_wu import reproject_wu
+    from kbmod_wf.task_impls.reproject_multi_chip_multi_night_wu import reproject_wu
 
     logger = configure_logger("task.reproject_wu", logging_file.filepath)
 

@@ -113,7 +113,7 @@ def ic_to_wu(inputs=[], outputs=[], runtime_config={}, logging_file=None):
 def reproject_wu(inputs=[], outputs=[], runtime_config={}, logging_file=None):
     import traceback
     from kbmod_wf.utilities.logger_utilities import configure_logger
-    from kbmod_wf.task_impls.reproject_wu import reproject_wu
+    from kbmod_wf.task_impls.reproject_single_chip_single_night_wu import reproject_wu
 
     logger = configure_logger("task.reproject_wu", logging_file.filepath)
 
@@ -121,7 +121,6 @@ def reproject_wu(inputs=[], outputs=[], runtime_config={}, logging_file=None):
     try:
         reproject_wu(
             original_wu_filepath=inputs[0].filepath,
-            uri_filepath=inputs[1].filepath,
             reprojected_wu_filepath=outputs[0].filepath,
             runtime_config=runtime_config,
             logger=logger,
