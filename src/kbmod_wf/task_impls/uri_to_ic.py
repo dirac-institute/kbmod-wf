@@ -84,12 +84,9 @@ def uri_to_ic(
     logger.info("Creating ImageCollection")
     # Create an ImageCollection object from the list of URIs
     last_time = time.time()
-    logger.info("Creating butler instance")
-    this_butler = Butler(runtime_config.get("butler_config_filepath", None))
+    ic = ImageCollection.fromTargets(uris)
     elapsed = round(time.time() - last_time, 1)
-    logger.debug(f"Required {elapsed}[s] to instantiate butler.")
-
-    ic = ImageCollection.fromTargets(uris, butler=this_butler)
+    logger.debug(f"Required {elapsed}[s] to create ImageCollection.")
 
     logger.info(f"Writing ImageCollection to file {ic_filepath}")
     ic.write(ic_filepath, format="ascii.ecsv")

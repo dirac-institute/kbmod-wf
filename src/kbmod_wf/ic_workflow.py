@@ -15,7 +15,7 @@ from kbmod_wf.utilities.logger_utilities import configure_logger
     executors=get_executors(["local_dev_testing", "local_thread"]),
     ignore_for_cache=["logging_file"],
 )
-def create_uri_manifest(inputs=[], outputs=[], runtime_config={}, logging_file=None):
+def create_manifest(inputs=(), outputs=(), runtime_config={}, logging_file=None):
     """This app will go to a given directory, find all of the *.collection files there,
     and copy the paths to a manifest file."""
     import glob
@@ -30,7 +30,7 @@ def create_uri_manifest(inputs=[], outputs=[], runtime_config={}, logging_file=N
 
     logger.info(f"Looking for staged files in {directory_path}")
 
-    # Gather all the *.lst entries in the directory
+    # Gather all the *.collection entries in the directory
     pattern = os.path.join(directory_path, "*.collection")
     entries = glob.glob(pattern)
 
@@ -51,37 +51,9 @@ def create_uri_manifest(inputs=[], outputs=[], runtime_config={}, logging_file=N
 
 
 @python_app(
-    cache=True, executors=get_executors(["local_dev_testing", "small_cpu"]), ignore_for_cache=["logging_file"]
-)
-def uri_to_ic(inputs=[], outputs=[], runtime_config={}, logging_file=None):
-    import traceback
-    from kbmod_wf.utilities.logger_utilities import configure_logger
-    from kbmod_wf.task_impls.uri_to_ic import uri_to_ic
-
-    logger = configure_logger("task.uri_to_ic", logging_file.filepath)
-
-    logger.info("Starting uri_to_ic")
-    try:
-        uri_to_ic(
-            uris_filepath=inputs[0].filepath,
-            uris_base_dir=None,  # determine what, if any, value should be used.
-            ic_filepath=outputs[0].filepath,
-            runtime_config=runtime_config,
-            logger=logger,
-        )
-    except Exception as e:
-        logger.error(f"Error running uri_to_ic: {e}")
-        logger.error(traceback.format_exc())
-        raise e
-    logger.warning("Completed uri_to_ic")
-
-    return outputs[0]
-
-
-@python_app(
     cache=True, executors=get_executors(["local_dev_testing", "large_mem"]), ignore_for_cache=["logging_file"]
 )
-def ic_to_wu(inputs=[], outputs=[], runtime_config={}, logging_file=None):
+def ic_to_wu(inputs=(), outputs=(), runtime_config={}, logging_file=None):
     import traceback
     from kbmod_wf.utilities.logger_utilities import configure_logger
     from kbmod_wf.task_impls.ic_to_wu import ic_to_wu
@@ -110,7 +82,7 @@ def ic_to_wu(inputs=[], outputs=[], runtime_config={}, logging_file=None):
     executors=get_executors(["local_dev_testing", "sharded_reproject"]),
     ignore_for_cache=["logging_file"],
 )
-def reproject_wu(inputs=[], outputs=[], runtime_config={}, logging_file=None):
+def reproject_wu(inputs=(), outputs=(), runtime_config={}, logging_file=None):
     import traceback
     from kbmod_wf.utilities.logger_utilities import configure_logger
     from kbmod_wf.task_impls.reproject_single_chip_single_night_wu import reproject_wu
@@ -137,7 +109,7 @@ def reproject_wu(inputs=[], outputs=[], runtime_config={}, logging_file=None):
 @python_app(
     cache=True, executors=get_executors(["local_dev_testing", "gpu"]), ignore_for_cache=["logging_file"]
 )
-def kbmod_search(inputs=[], outputs=[], runtime_config={}, logging_file=None):
+def kbmod_search(inputs=(), outputs=(), runtime_config={}, logging_file=None):
     import traceback
     from kbmod_wf.utilities.logger_utilities import configure_logger
     from kbmod_wf.task_impls.kbmod_search import kbmod_search
@@ -161,7 +133,17 @@ def kbmod_search(inputs=[], outputs=[], runtime_config={}, logging_file=None):
     return outputs[0]
 
 
-def workflow_runner(env: str = None, runtime_config: dict = {}) -> None:
+def workflow_runner(env=None, runtime_config={}):
+    """This function will load and configure Parsl, and run the workflow.
+
+    Parameters
+    ----------
+    env : str, optional
+        Environment string used to define which resource configuration to use,
+        by default None
+    runtime_config : dict, optional
+        Dictionary of assorted runtime configuration parameters, by default {}
+    """
     resource_config = get_resource_config(env=env)
     resource_config = apply_runtime_updates(resource_config, runtime_config)
 
@@ -178,10 +160,10 @@ def workflow_runner(env: str = None, runtime_config: dict = {}) -> None:
 
         # gather all the *.collection files that are staged for processing
         manifest_file = File(os.path.join(os.getcwd(), "manifest.txt"))
-        create_manifest_future = create_uri_manifest(
+        create_manifest_future = create_manifest(
             inputs=[],
             outputs=[manifest_file],
-            runtime_config=app_configs.get("create_uri_manifest", {}),
+            runtime_config=app_configs.get("create_manifest", {}),
             logging_file=logging_file,
         )
 

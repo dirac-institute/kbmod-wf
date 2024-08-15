@@ -20,14 +20,14 @@ from kbmod_wf.utilities.logger_utilities import configure_logger
     executors=get_executors(["local_dev_testing", "local_thread"]),
     ignore_for_cache=["logging_file"],
 )
-def create_uri_manifest(inputs=[], outputs=[], runtime_config={}, logging_file=None):
+def create_manifest(inputs=(), outputs=(), runtime_config={}, logging_file=None):
     """This app will go to a given directory, find all of the uri.lst files there,
     and copy the paths to the manifest file."""
     import glob
     import os
     from kbmod_wf.utilities.logger_utilities import configure_logger
 
-    logger = configure_logger("task.create_uri_manifest", logging_file.filepath)
+    logger = configure_logger("task.create_manifest", logging_file.filepath)
 
     directory_path = runtime_config.get("staging_directory")
     if directory_path is None:
@@ -58,7 +58,7 @@ def create_uri_manifest(inputs=[], outputs=[], runtime_config={}, logging_file=N
 @python_app(
     cache=True, executors=get_executors(["local_dev_testing", "small_cpu"]), ignore_for_cache=["logging_file"]
 )
-def uri_to_ic(inputs=[], outputs=[], runtime_config={}, logging_file=None):
+def uri_to_ic(inputs=(), outputs=(), runtime_config={}, logging_file=None):
     import traceback
     from kbmod_wf.utilities.logger_utilities import configure_logger
     from kbmod_wf.task_impls.uri_to_ic import uri_to_ic
@@ -86,7 +86,7 @@ def uri_to_ic(inputs=[], outputs=[], runtime_config={}, logging_file=None):
 @python_app(
     cache=True, executors=get_executors(["local_dev_testing", "large_mem"]), ignore_for_cache=["logging_file"]
 )
-def ic_to_wu(inputs=[], outputs=[], runtime_config={}, logging_file=None):
+def ic_to_wu(inputs=(), outputs=(), runtime_config={}, logging_file=None):
     import traceback
     from kbmod_wf.utilities.logger_utilities import configure_logger
     from kbmod_wf.task_impls.ic_to_wu import ic_to_wu
@@ -115,7 +115,7 @@ def ic_to_wu(inputs=[], outputs=[], runtime_config={}, logging_file=None):
     executors=get_executors(["local_dev_testing", "sharded_reproject"]),
     ignore_for_cache=["logging_file"],
 )
-def reproject_wu(inputs=[], outputs=[], runtime_config={}, logging_file=None):
+def reproject_wu(inputs=(), outputs=(), runtime_config={}, logging_file=None):
     import traceback
     from kbmod_wf.utilities.logger_utilities import configure_logger
     from kbmod_wf.task_impls.reproject_multi_chip_multi_night_wu import reproject_wu
@@ -143,7 +143,7 @@ def reproject_wu(inputs=[], outputs=[], runtime_config={}, logging_file=None):
 @python_app(
     cache=True, executors=get_executors(["local_dev_testing", "gpu"]), ignore_for_cache=["logging_file"]
 )
-def kbmod_search(inputs=[], outputs=[], runtime_config={}, logging_file=None):
+def kbmod_search(inputs=(), outputs=(), runtime_config={}, logging_file=None):
     import traceback
     from kbmod_wf.utilities.logger_utilities import configure_logger
     from kbmod_wf.task_impls.kbmod_search import kbmod_search
@@ -167,7 +167,17 @@ def kbmod_search(inputs=[], outputs=[], runtime_config={}, logging_file=None):
     return outputs[0]
 
 
-def workflow_runner(env: str = None, runtime_config: dict = {}) -> None:
+def workflow_runner(env=None, runtime_config={}):
+    """This function will load and configure Parsl, and run the workflow.
+
+    Parameters
+    ----------
+    env : str, optional
+        Environment string used to define which resource configuration to use,
+        by default None
+    runtime_config : dict, optional
+        Dictionary of assorted runtime configuration parameters, by default {}
+    """
     resource_config = get_resource_config(env=env)
     resource_config = apply_runtime_updates(resource_config, runtime_config)
 
@@ -184,14 +194,14 @@ def workflow_runner(env: str = None, runtime_config: dict = {}) -> None:
 
         # gather all the .lst files that are staged for processing
         manifest_file = File(os.path.join(os.getcwd(), "manifest.txt"))
-        create_uri_manifest_future = create_uri_manifest(
+        create_manifest_future = create_manifest(
             inputs=[],
             outputs=[manifest_file],
-            runtime_config=app_configs.get("create_uri_manifest", {}),
+            runtime_config=app_configs.get("create_manifest", {}),
             logging_file=logging_file,
         )
 
-        with open(create_uri_manifest_future.result(), "r") as f:
+        with open(create_manifest_future.result(), "r") as f:
             # process each .lst file in the manifest into a .ecvs file
             uri_to_ic_futures = []
             uri_files = []

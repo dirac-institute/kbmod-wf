@@ -8,7 +8,7 @@ checkpoint_mode = 'task_exit'
 
 # Values in the apps.XXX section will be passed as a dictionary to the corresponding
 # app. e.g. apps.create_uri_manifest will be passed to the create_uri_manifest app.
-[apps.create_uri_manifest]
+[apps.create_manifest]
 # The path to the staging directory
 # e.g. "/gscratch/dirac/kbmod/workflow/staging"
 staging_directory = "/home/drew/code/kbmod-wf/dev_staging"

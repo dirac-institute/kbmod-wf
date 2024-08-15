@@ -14,18 +14,15 @@ def reproject_wu(
     runtime_config: dict = {},
     logger: Logger = None,
 ):
-    """This task will perform reflex correction and reproject a WorkUnit to a common WCS.
+    """This task will reproject a WorkUnit to a common WCS.
 
     Parameters
     ----------
     original_wu_filepath : str, optional
         The fully resolved filepath to the input WorkUnit file, by default None
-    uri_filepath : str, optional
-        The fully resolved filepath to the original uri file. This is used
-        exclusively for the header contents, by default None
     reprojected_wu_filepath : str, optional
-        The fully resolved filepath to the resulting WorkUnit file after reflex
-        and reprojection, by default None
+        The fully resolved filepath to the resulting WorkUnit file after
+        reprojection, by default None
     runtime_config : dict, optional
         Additional configuration parameters to be used at runtime, by default {}
     logger : Logger, optional
@@ -81,13 +78,15 @@ class WUReprojector:
         self.logger.debug(f"Reprojecting WorkUnit with {self.n_workers} workers...")
         last_time = time.time()
 
-        opt_wcs, _ = find_optimal_celestial_wcs(list(wu._per_image_wcs))
-        reprojection.reproject_lazy_work_unit(
+        opt_wcs, shape = find_optimal_celestial_wcs(list(wu._per_image_wcs))
+        opt_wcs.array_shape = shape
+        reprojection.reproject_work_unit(
             wu,
             opt_wcs,
-            directory_containing_reprojected_shards,
-            reprojected_wu_filename,
             max_parallel_processes=self.n_workers,
+            write_output=True,
+            directory=directory_containing_reprojected_shards,
+            filename=reprojected_wu_filename,
         )
 
         elapsed = round(time.time() - last_time, 1)
