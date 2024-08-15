@@ -3,7 +3,6 @@ import glob
 import time
 from logging import Logger
 from kbmod import ImageCollection
-from lsst.daf.butler import Butler
 
 
 #! I believe that we can remove the `uris_base_dir` parameter from the function
