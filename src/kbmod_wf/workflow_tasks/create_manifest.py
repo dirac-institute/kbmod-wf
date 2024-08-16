@@ -61,7 +61,8 @@ def create_manifest(inputs=(), outputs=(), runtime_config={}, logging_file=None)
     logger.info(f"Looking for staged files in {directory_path}")
 
     # Gather all the *.collection entries in the directory
-    pattern = os.path.join(directory_path, "*.collection")
+    file_pattern = runtime_config.get("file_pattern", "*.collection")
+    pattern = os.path.join(directory_path, file_pattern)
     entries = glob.glob(pattern)
 
     # Filter out directories, keep only files
@@ -74,7 +75,8 @@ def create_manifest(inputs=(), outputs=(), runtime_config={}, logging_file=None)
     logger.info(f"Found {len(files)} files in {directory_path}")
 
     # Write the filenames to the manifest file
-    with open(outputs[0].filename, "w") as manifest_file:
+    logger.info(f"Writing manifest file: {outputs[0].filepath}")
+    with open(outputs[0].filepath, "w") as manifest_file:
         for file in files:
             manifest_file.write(file + "\n")
 

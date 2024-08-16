@@ -60,7 +60,8 @@ def workflow_runner(env=None, runtime_config={}):
 
     app_configs = runtime_config.get("apps", {})
 
-    with parsl.load(resource_config) as dfk:
+    dfk = parsl.load(resource_config)
+    if dfk:
         logging_file = File(os.path.join(dfk.run_dir, "parsl.log"))
         logger = configure_logger("workflow.workflow_runner", logging_file.filepath)
 

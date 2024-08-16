@@ -13,11 +13,7 @@ checkpoint_mode = 'task_exit'
 # e.g. "/gscratch/dirac/kbmod/workflow/staging"
 staging_directory = "/home/drew/code/kbmod-wf/dev_staging"
 output_directory = "/home/drew/code/kbmod-wf/dev_staging/single_chip_workflow"
-
-
-[apps.uri_to_ic]
-# The path to the butler config file that instantiate a butler to retrieve images
-butler_config_filepath = "/gscratch/dirac/DEEP/repo/butler.yaml"
+file_pattern = "*.collection"
 
 
 [apps.ic_to_wu]
