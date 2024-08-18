@@ -1,3 +1,8 @@
+"""This workflow definition represents the task flow that was used to prepare results
+for the TNO 2024 presentation. It has been slightly updated to also use sharded
+workunits.
+"""
+
 import argparse
 import os
 import toml

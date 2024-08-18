@@ -2,13 +2,46 @@ import argparse
 import os
 import toml
 import parsl
-from parsl import File
+from parsl import python_app, File
 import parsl.executors
 
 from kbmod_wf.utilities.configuration_utilities import apply_runtime_updates, get_resource_config
+from kbmod_wf.utilities.executor_utilities import get_executors
 from kbmod_wf.utilities.logger_utilities import configure_logger
 
-from kbmod_wf.workflow_tasks import create_manifest, ic_to_wu, kbmod_search, reproject_wu, uri_to_ic
+from kbmod_wf.workflow_tasks import create_manifest, ic_to_wu, kbmod_search
+
+
+# There's still a ton of duplicated code here and in kbmod_wf.workflow_tasks.reproject_wu
+# that should be refactored.
+# The only difference is the import of reproject_single_chip_single_night_wu here.
+@python_app(
+    cache=True,
+    executors=get_executors(["local_dev_testing", "sharded_reproject"]),
+    ignore_for_cache=["logging_file"],
+)
+def reproject_wu(inputs=(), outputs=(), runtime_config={}, logging_file=None):
+    import traceback
+    from kbmod_wf.utilities.logger_utilities import configure_logger
+    from kbmod_wf.task_impls.reproject_single_chip_single_night_wu import reproject_wu
+
+    logger = configure_logger("task.reproject_wu", logging_file.filepath)
+
+    logger.info("Starting reproject_ic")
+    try:
+        reproject_wu(
+            original_wu_filepath=inputs[0].filepath,
+            reprojected_wu_filepath=outputs[0].filepath,
+            runtime_config=runtime_config,
+            logger=logger,
+        )
+    except Exception as e:
+        logger.error(f"Error running reproject_ic: {e}")
+        logger.error(traceback.format_exc())
+        raise e
+    logger.warning("Completed reproject_ic")
+
+    return outputs[0]
 
 
 def workflow_runner(env=None, runtime_config={}):
@@ -37,7 +70,7 @@ def workflow_runner(env=None, runtime_config={}):
 
         logger.info("Starting workflow")
 
-        # gather all the .lst files that are staged for processing
+        # gather all the *.collection files that are staged for processing
         create_manifest_config = app_configs.get("create_manifest", {})
         manifest_file = File(
             os.path.join(create_manifest_config.get("output_directory", os.getcwd()), "manifest.txt")
@@ -50,45 +83,34 @@ def workflow_runner(env=None, runtime_config={}):
         )
 
         with open(create_manifest_future.result(), "r") as f:
-            # process each .lst file in the manifest into a .ecvs file
-            uri_to_ic_futures = []
-            uri_files = []
+            # process each .collection file in the manifest into a .wu file
+            original_work_unit_futures = []
+            collection_files = []
             for line in f:
-                uri_file = File(line.strip())
-                uri_files.append(uri_file)
-                uri_to_ic_futures.append(
-                    uri_to_ic(
-                        inputs=[uri_file],
-                        outputs=[File(line + ".ecsv")],
-                        runtime_config=app_configs.get("uri_to_ic", {}),
+                collection_file = File(line.strip())
+                collection_files.append(collection_file)
+                original_work_unit_futures.append(
+                    ic_to_wu(
+                        inputs=[collection_file],
+                        outputs=[File(line + ".wu")],
+                        runtime_config=app_configs.get("ic_to_wu", {}),
                         logging_file=logging_file,
                     )
                 )
 
-        # create an original WorkUnit for each .ecsv file
-        original_work_unit_futures = []
-        for f in uri_to_ic_futures:
-            original_work_unit_futures.append(
-                ic_to_wu(
-                    inputs=[f.result()],
-                    outputs=[File(f.result().filepath + ".wu")],
-                    runtime_config=app_configs.get("ic_to_wu", {}),
+        # reproject each WorkUnit
+        # For chip-by-chip, this isn't really necessary, so hardcoding to 0.
+        reproject_futures = []
+        for f, collection_file in zip(original_work_unit_futures, collection_files):
+            distance = 0
+            reproject_futures.append(
+                reproject_wu(
+                    inputs=[f.result(), collection_file],
+                    outputs=[File(f.result().filepath + f".{distance}.repro")],
+                    runtime_config=app_configs.get("reproject_wu", {}),
                     logging_file=logging_file,
                 )
             )
-
-        # reproject each WorkUnit for a range of distances
-        reproject_futures = []
-        for f, uri_file in zip(original_work_unit_futures, uri_files):
-            for distance in range(40, 60, 10):
-                reproject_futures.append(
-                    reproject_wu(
-                        inputs=[f.result(), uri_file],
-                        outputs=[File(f.result().filepath + f".{distance}.repro")],
-                        runtime_config=app_configs.get("reproject_wu", {}),
-                        logging_file=logging_file,
-                    )
-                )
 
         # run kbmod search on each reprojected WorkUnit
         search_futures = []
