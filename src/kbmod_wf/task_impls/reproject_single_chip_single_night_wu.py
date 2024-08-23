@@ -2,7 +2,7 @@ from kbmod.work_unit import WorkUnit
 
 import kbmod.reprojection as reprojection
 
-from astropy.reproject.mosaicking import find_optimal_celestial_wcs
+from reproject.mosaicking import find_optimal_celestial_wcs
 import os
 import time
 from logging import Logger
