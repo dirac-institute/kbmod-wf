@@ -45,6 +45,7 @@ def reproject_wu(inputs=(), outputs=(), runtime_config={}, logging_file=None):
     try:
         reproject_wu(
             original_wu_filepath=inputs[0].filepath,
+            uri_filepath=inputs[1].filepath,
             reprojected_wu_filepath=outputs[0].filepath,
             runtime_config=runtime_config,
             logger=logger,

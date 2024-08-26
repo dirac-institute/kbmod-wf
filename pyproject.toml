@@ -19,6 +19,7 @@ dependencies = [
     "parsl", # The primary workflow orchestration tool
     "toml", # Used to read runtime configuration files
     "astropy", # Used for various file, date, and location manipulations
+    "reproject", # Used to reproject images
 ]
 
 [project.urls]
