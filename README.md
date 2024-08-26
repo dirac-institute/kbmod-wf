@@ -47,3 +47,44 @@ Notes:
    into documentation for ReadTheDocs works as expected. For more information, see
    the Python Project Template documentation on
    [Sphinx and Python Notebooks](https://lincc-ppt.readthedocs.io/en/latest/practices/sphinx.html#python-notebooks)
+
+
+## Example runtime configuration file
+The following is what Drew uses when running the workflow on Klone
+```
+# All values set here will be applied to the resource configuration prior to 
+# calling parsl.load(config). Even if the key does't exist in the resource
+# config, it will be added with the value defined here.
+[resource_config_modifiers]
+checkpoint_mode = 'task_exit'
+
+
+# Values in the apps.XXX section will be passed as a dictionary to the corresponding
+# app. e.g. apps.create_uri_manifest will be passed to the create_uri_manifest app.
+[apps.create_manifest]
+# The path to the staging directory
+# e.g. "/gscratch/dirac/kbmod/workflow/staging"
+staging_directory = "/gscratch/dirac/kbmod/workflow/staging"
+output_directory = "/gscratch/dirac/kbmod/workflow/staging/scsn"
+file_pattern = "*.collection"
+
+[apps.ic_to_wu]
+# The path to the KBMOD search config file
+# e.g. "/gscratch/dirac/kbmod/workflow/kbmod_search_config.yaml"
+search_config_filepath = "/gscratch/dirac/kbmod/workflow/staging/search_config.yaml"
+butler_config_filepath = "/gscratch/dirac/DEEP/repo/butler.yaml"
+overwrite = false
+
+[apps.reproject_wu]
+# Number of processors to use for parallelizing the reprojection
+n_workers = 32
+# The name of the observation site to use for reflex correction
+observation_site = "ctio"
+
+[apps.kbmod_search]
+# The path to the KBMOD search config file
+# e.g. "/gscratch/dirac/kbmod/workflow/kbmod_search_config.yaml"
+search_config_filepath = "/gscratch/dirac/kbmod/workflow/staging/search_config.yaml"
+```
+
+
