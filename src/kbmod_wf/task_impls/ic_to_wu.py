@@ -48,6 +48,7 @@ class ICtoWUConverter:
         self.wu_filepath = wu_filepath
         self.runtime_config = runtime_config
         self.logger = logger
+        kbmod._logging.basicConfig(level=self.logger.level)
 
         self.overwrite = self.runtime_config.get("overwrite", False)
         self.search_config_filepath = self.runtime_config.get("search_config_filepath", None)
