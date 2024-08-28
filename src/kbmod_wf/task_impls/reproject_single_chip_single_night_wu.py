@@ -1,3 +1,4 @@
+import kbmod
 from kbmod.work_unit import WorkUnit
 
 import kbmod.reprojection as reprojection
@@ -56,6 +57,7 @@ class WUReprojector:
         self.reprojected_wu_filepath = reprojected_wu_filepath
         self.runtime_config = runtime_config
         self.logger = logger
+        kbmod._logging.basicConfig(level=self.logger.level)
 
         # Default to 8 workers if not in the config. Value must be 0<num workers<65.
         self.n_workers = max(1, min(self.runtime_config.get("n_workers", 8), 64))

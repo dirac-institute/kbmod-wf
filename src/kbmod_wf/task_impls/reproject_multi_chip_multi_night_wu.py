@@ -1,3 +1,4 @@
+import kbmod
 from kbmod.work_unit import WorkUnit
 from kbmod.reprojection_utils import transform_wcses_to_ebd
 
@@ -67,6 +68,7 @@ class WUReprojector:
         self.reprojected_wu_filepath = reprojected_wu_filepath
         self.runtime_config = runtime_config
         self.logger = logger
+        kbmod._logging.basicConfig(level=self.logger.level)
 
         self.overwrite = self.runtime_config.get("overwrite", False)
         self.search_config = self.runtime_config.get("search_config", None)
