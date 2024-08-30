@@ -57,7 +57,6 @@ class WUReprojector:
         self.reprojected_wu_filepath = reprojected_wu_filepath
         self.runtime_config = runtime_config
         self.logger = logger
-        kbmod._logging.basicConfig(level=self.logger.level)
 
         # Default to 8 workers if not in the config. Value must be 0<num workers<65.
         self.n_workers = max(1, min(self.runtime_config.get("n_workers", 8), 64))
@@ -68,16 +67,14 @@ class WUReprojector:
         directory_containing_shards, wu_filename = os.path.split(self.original_wu_filepath)
         wu = WorkUnit.from_sharded_fits(wu_filename, directory_containing_shards, lazy=True)
         elapsed = round(time.time() - last_time, 1)
-        self.logger.debug(
-            f"Required {elapsed}[s] to lazy read original WorkUnit {self.original_wu_filepath}."
-        )
+        self.logger.info(f"Required {elapsed}[s] to lazy read original WorkUnit {self.original_wu_filepath}.")
 
         directory_containing_reprojected_shards, reprojected_wu_filename = os.path.split(
             self.reprojected_wu_filepath
         )
 
         # Reproject to a common WCS using the WCS for our patch
-        self.logger.debug(f"Reprojecting WorkUnit with {self.n_workers} workers...")
+        self.logger.info(f"Reprojecting WorkUnit with {self.n_workers} workers...")
         last_time = time.time()
 
         opt_wcs, shape = find_optimal_celestial_wcs(list(wu._per_image_wcs))
@@ -92,6 +89,6 @@ class WUReprojector:
         )
 
         elapsed = round(time.time() - last_time, 1)
-        self.logger.debug(f"Required {elapsed}[s] to create the sharded reprojected WorkUnit.")
+        self.logger.info(f"Required {elapsed}[s] to create the sharded reprojected WorkUnit.")
 
         return self.reprojected_wu_filepath

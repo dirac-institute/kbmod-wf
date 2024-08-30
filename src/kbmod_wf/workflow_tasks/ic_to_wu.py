@@ -26,31 +26,21 @@ def ic_to_wu(inputs=(), outputs=(), runtime_config={}, logging_file=None):
     -------
     parsl.File
         The file object that points to the WorkUnit file that was created.
-
-    Raises
-    ------
-    e
-        Reraises any exceptions that occur during the execution of the ic_to_wu
-        function.
     """
-    import traceback
-    from kbmod_wf.utilities.logger_utilities import configure_logger
+    from kbmod_wf.utilities.logger_utilities import get_configured_logger, ErrorLogger
+
+    logger = get_configured_logger("task.ic_to_wu", logging_file)
+
     from kbmod_wf.task_impls.ic_to_wu import ic_to_wu
 
-    logger = configure_logger("task.ic_to_wu", logging_file.filepath)
-
     logger.info("Starting ic_to_wu")
-    try:
+    with ErrorLogger(logger):
         ic_to_wu(
             ic_filepath=inputs[0].filepath,
             wu_filepath=outputs[0].filepath,
             runtime_config=runtime_config,
             logger=logger,
         )
-    except Exception as e:
-        logger.error(f"Error running ic_to_wu: {e}")
-        logger.error(traceback.format_exc())
-        raise e
-    logger.warning("Completed ic_to_wu")
+    logger.info("Completed ic_to_wu")
 
     return outputs[0]

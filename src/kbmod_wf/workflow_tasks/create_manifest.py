@@ -33,13 +33,13 @@ def create_manifest(inputs=(), outputs=(), runtime_config={}, logging_file=None)
     ValueError
         If the staging_directory is not provided in the runtime_config.
     """
-
     import glob
     import os
     import shutil
-    from kbmod_wf.utilities.logger_utilities import configure_logger
 
-    logger = configure_logger("task.create_manifest", logging_file.filepath)
+    from kbmod_wf.utilities.logger_utilities import get_configured_logger
+
+    logger = get_configured_logger("task.create_manifest", logging_file.filepath)
 
     directory_path = runtime_config.get("staging_directory")
     output_path = runtime_config.get("output_directory")

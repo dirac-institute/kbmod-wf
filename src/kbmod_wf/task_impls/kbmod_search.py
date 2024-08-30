@@ -49,7 +49,6 @@ class KBMODSearcher:
         self.runtime_config = runtime_config
         self.result_filepath = result_filepath
         self.logger = logger
-        kbmod._logging.basicConfig(level=self.logger.level)
 
         self.search_config_filepath = self.runtime_config.get("search_config_filepath", None)
         self.results_directory = os.path.dirname(self.result_filepath)
