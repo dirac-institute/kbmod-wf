@@ -35,14 +35,14 @@ def reproject_wu(inputs=(), outputs=(), runtime_config={}, logging_file=None):
         Reraises any exceptions that occur during the execution of the reproject_wu
         function.
     """
-    import traceback
-    from kbmod_wf.utilities.logger_utilities import configure_logger
+    from kbmod_wf.utilities.logger_utilities import get_configured_logger, ErrorLogger
+
+    logger = get_configured_logger("task.ic_to_wu", logging_file)
+
     from kbmod_wf.task_impls.reproject_multi_chip_multi_night_wu import reproject_wu
 
-    logger = configure_logger("task.reproject_wu", logging_file.filepath)
-
     logger.info("Starting reproject_ic")
-    try:
+    with ErrorLogger(logger):
         reproject_wu(
             original_wu_filepath=inputs[0].filepath,
             uri_filepath=inputs[1].filepath,
@@ -50,10 +50,6 @@ def reproject_wu(inputs=(), outputs=(), runtime_config={}, logging_file=None):
             runtime_config=runtime_config,
             logger=logger,
         )
-    except Exception as e:
-        logger.error(f"Error running reproject_ic: {e}")
-        logger.error(traceback.format_exc())
-        raise e
-    logger.warning("Completed reproject_ic")
+    logger.info("Completed reproject_ic")
 
     return outputs[0]

@@ -1,12 +1,13 @@
 import argparse
 import os
 import toml
+
 import parsl
 from parsl import File
 import parsl.executors
 
 from kbmod_wf.utilities.configuration_utilities import apply_runtime_updates, get_resource_config
-from kbmod_wf.utilities.logger_utilities import configure_logger
+from kbmod_wf.utilities.logger_utilities import get_configured_logger
 
 from kbmod_wf.workflow_tasks import create_manifest, ic_to_wu, kbmod_search, reproject_wu, uri_to_ic
 
@@ -30,7 +31,7 @@ def workflow_runner(env=None, runtime_config={}):
     dfk = parsl.load(resource_config)
     if dfk:
         logging_file = File(os.path.join(dfk.run_dir, "parsl.log"))
-        logger = configure_logger("workflow.workflow_runner", logging_file.filepath)
+        logger = get_configured_logger(logging_file.filepath)
 
         if runtime_config is not None:
             logger.info(f"Using runtime configuration definition:\n{toml.dumps(runtime_config)}")

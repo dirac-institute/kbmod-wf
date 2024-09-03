@@ -1,13 +1,17 @@
 import argparse
 import os
+
 import toml
 import parsl
 from parsl import python_app, File
 import parsl.executors
 
-from kbmod_wf.utilities.configuration_utilities import apply_runtime_updates, get_resource_config
-from kbmod_wf.utilities.executor_utilities import get_executors
-from kbmod_wf.utilities.logger_utilities import configure_logger
+from kbmod_wf.utilities import (
+    apply_runtime_updates,
+    get_resource_config,
+    get_executors,
+    get_configured_logger,
+)
 
 from kbmod_wf.workflow_tasks import create_manifest, ic_to_wu, kbmod_search
 
@@ -21,26 +25,21 @@ from kbmod_wf.workflow_tasks import create_manifest, ic_to_wu, kbmod_search
     ignore_for_cache=["logging_file"],
 )
 def reproject_wu(inputs=(), outputs=(), runtime_config={}, logging_file=None):
-    import traceback
-    from kbmod_wf.utilities.logger_utilities import configure_logger
+    from kbmod_wf.utilities.logger_utilities import get_configured_logger, ErrorLogger
+
+    logger = get_configured_logger("task.reproject_wu", logging_file.filepath)
+
     from kbmod_wf.task_impls.reproject_single_chip_single_night_wu import reproject_wu
 
-    logger = configure_logger("task.reproject_wu", logging_file.filepath)
-
     logger.info("Starting reproject_ic")
-    try:
+    with ErrorLogger(logger):
         reproject_wu(
             original_wu_filepath=inputs[0].filepath,
             reprojected_wu_filepath=outputs[0].filepath,
             runtime_config=runtime_config,
             logger=logger,
         )
-    except Exception as e:
-        logger.error(f"Error running reproject_ic: {e}")
-        logger.error(traceback.format_exc())
-        raise e
-    logger.warning("Completed reproject_ic")
-
+    logger.info("Completed reproject_ic")
     return outputs[0]
 
 
@@ -62,8 +61,8 @@ def workflow_runner(env=None, runtime_config={}):
 
     dfk = parsl.load(resource_config)
     if dfk:
-        logging_file = File(os.path.join(dfk.run_dir, "parsl.log"))
-        logger = configure_logger("workflow.workflow_runner", logging_file.filepath)
+        logging_file = File(os.path.join(dfk.run_dir, "kbmod.log"))
+        logger = get_configured_logger("workflow.workflow_runner", logging_file.filepath)
 
         if runtime_config is not None:
             logger.info(f"Using runtime configuration definition:\n{toml.dumps(runtime_config)}")
