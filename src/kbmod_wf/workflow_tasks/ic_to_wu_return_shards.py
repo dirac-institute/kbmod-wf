@@ -45,9 +45,9 @@ def ic_to_wu_return_shards(inputs=(), outputs=(), runtime_config={}, logging_fil
     logger.info("Completed ic_to_wu")
 
     # get parent directory of outputs[0] and fine all .wu files in that directory
-    shard_files = [s for s in Path(outputs[0]).parent.glob("*.wu")]
+    shard_files = [str(s) for s in Path(outputs[0]).parent.glob("*.wu")]
 
     # remove the original .wu file from the shard_files list
-    shard_files = [f for f in shard_files if f != outputs[0]]
+    shard_files = [f for f in shard_files if f != outputs[0].filepath]
 
     return shard_files, wcs

@@ -22,7 +22,7 @@ from kbmod_wf.workflow_tasks import create_manifest, ic_to_wu_return_shards, kbm
     executors=get_executors(["local_dev_testing", "reproject_single_shard"]),
     ignore_for_cache=["logging_file"],
 )
-def reproject_shard(inputs=(), outputs=(), wcs=None, runtime_config={}, logging_file=None):
+def reproject_shard(inputs=(), outputs=(), wcses=None, runtime_config={}, logging_file=None):
     from kbmod_wf.utilities.logger_utilities import get_configured_logger, ErrorLogger
 
     logger = get_configured_logger("task.sharded_reproject", logging_file.filepath)
@@ -33,7 +33,7 @@ def reproject_shard(inputs=(), outputs=(), wcs=None, runtime_config={}, logging_
     with ErrorLogger(logger):
         reproject_shard(
             original_wu_filepath=inputs[0].filepath,
-            original_wcs=wcs,
+            original_wcs=wcses,
             reprojected_wu_filepath=outputs[0].filepath,
             runtime_config=runtime_config,
             logger=logger,
@@ -116,7 +116,7 @@ def workflow_runner(env=None, runtime_config={}):
                 shard_future = reproject_shard(
                     inputs=[File(str(shard_file))],
                     outputs=[File(str(shard_file.parent / (shard_file.stem + ".repro")))],
-                    wcs=wcs,
+                    wcses=wcses,
                     runtime_config=app_configs.get("reproject_wu", {}),
                     logging_file=logging_file,
                 )

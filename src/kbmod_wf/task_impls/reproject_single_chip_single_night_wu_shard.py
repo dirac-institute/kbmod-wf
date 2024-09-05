@@ -1,15 +1,17 @@
+import json
 import os
 import time
 from logging import Logger
 
 import numpy as np
 import astropy.io.fits as fitsio
+from astropy.wcs import WCS
 
-import kbmod
-from kbmod.work_unit import WorkUnit
-import kbmod.reprojection as reprojection
+# import kbmod
+# from kbmod.work_unit import WorkUnit
+# import kbmod.reprojection as reprojection
 
-from reoproject import reproject_adaptive
+from reproject import reproject_adaptive
 from reproject.mosaicking import find_optimal_celestial_wcs
 
 
@@ -41,7 +43,9 @@ def reproject_shard(
         and reprojection.
     """
 
-    opt_wcs, shape = find_optimal_celestial_wcs(original_wcs)
+    wcs_list = [WCS(json.loads(wcs)) for wcs in original_wcs]
+
+    opt_wcs, shape = find_optimal_celestial_wcs(wcs_list)
     opt_wcs.array_shape = shape
 
     shard = fitsio.open(original_wu_shard_filepath)
