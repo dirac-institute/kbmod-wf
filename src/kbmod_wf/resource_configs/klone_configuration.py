@@ -9,7 +9,7 @@ walltimes = {
     "compute_bigmem": "01:00:00",
     "large_mem": "04:00:00",
     "sharded_reproject": "04:00:00",
-    "parallel_reproject": "00:30:00",
+    "reproject_single_shard": "00:30:00",
     "gpu_max": "08:00:00",
 }
 
@@ -82,20 +82,20 @@ def klone_resource_config():
                 ),
             ),
             HighThroughputExecutor(
-                label="parallel_reproject",
+                label="reproject_single_shard",
                 max_workers=1,
                 provider=SlurmProvider(
                     partition="ckpt-g2",
                     account="astro",
                     min_blocks=0,
-                    max_blocks=2,
+                    max_blocks=256,
                     init_blocks=0,
                     parallelism=1,
                     nodes_per_block=1,
                     cores_per_node=1,
-                    mem_per_node=2,  # ~2-4 GB per core
+                    mem_per_node=1,  # only working on 1 image, so <1 GB should be required
                     exclusive=False,
-                    walltime=walltimes["parallel_reproject"],
+                    walltime=walltimes["reproject_single_shard"],
                     # Command to run before starting worker - i.e. conda activate <special_env>
                     worker_init="",
                 ),

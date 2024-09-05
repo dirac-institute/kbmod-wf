@@ -83,4 +83,6 @@ class ICtoWUConverter:
         elapsed = round(time.time() - last_time, 1)
         self.logger.debug(f"Required {elapsed}[s] to write WorkUnit to disk: {self.wu_filepath}")
 
-        return self.wu_filepath
+        wcs = list(orig_wu._per_image_wcs)
+
+        return self.wu_filepath, wcs

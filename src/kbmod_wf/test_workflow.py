@@ -249,7 +249,7 @@ if __name__ == "__main__":
     runtime_config = {}
 
     #! Don't forget to remove this hardcoded path!!!
-    args.runtime_config = "/home/drew/code/kbmod-wf/example_runtime_config.toml"
+    args.runtime_config = "/Users/drew/code/kbmod-wf/example_runtime_config.toml"
     if args.runtime_config is not None and os.path.exists(args.runtime_config):
         with open(args.runtime_config, "r") as toml_runtime_config:
             runtime_config = toml.load(toml_runtime_config)

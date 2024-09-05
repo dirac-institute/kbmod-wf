@@ -4,7 +4,7 @@ from pathlib import Path
 
 import toml
 import parsl
-from parsl import join_app, python_app, File
+from parsl import python_app, File
 import parsl.executors
 
 from kbmod_wf.utilities import (
@@ -14,50 +14,26 @@ from kbmod_wf.utilities import (
     get_configured_logger,
 )
 
-from kbmod_wf.workflow_tasks import create_manifest, ic_to_wu, kbmod_search
-
-
-# There's still a ton of duplicated code here and in kbmod_wf.workflow_tasks.reproject_wu
-# that should be refactored.
-# The only difference is the import of reproject_single_chip_single_night_wu here.
-@join_app(
-    cache=True,
-    executors=get_executors(["local_dev_testing", "sharded_reproject"]),
-    ignore_for_cache=["logging_file"],
-)
-def reproject_wu(inputs=(), outputs=(), runtime_config={}, logging_file=None):
-    from kbmod_wf.utilities.logger_utilities import get_configured_logger, ErrorLogger
-
-    logger = get_configured_logger("task.reproject_wu", logging_file.filepath)
-
-    logger.info("Starting reproject_ic")
-    with ErrorLogger(logger):
-        future = sharded_reproject(
-            original_wu_filepath=inputs[0].filepath,
-            reprojected_wu_filepath=outputs[0].filepath,
-            runtime_config=runtime_config,
-            logger=logger,
-        )
-    logger.info("Completed reproject_ic")
-    return future
+from kbmod_wf.workflow_tasks import create_manifest, ic_to_wu_return_shards, kbmod_search
 
 
 @python_app(
     cache=True,
-    executors=get_executors(["local_dev_testing", "sharded_reproject"]),
+    executors=get_executors(["local_dev_testing", "reproject_single_shard"]),
     ignore_for_cache=["logging_file"],
 )
-def sharded_reproject(inputs=(), outputs=(), runtime_config={}, logging_file=None):
+def reproject_shard(inputs=(), outputs=(), runtime_config={}, logging_file=None):
     from kbmod_wf.utilities.logger_utilities import get_configured_logger, ErrorLogger
 
     logger = get_configured_logger("task.sharded_reproject", logging_file.filepath)
 
-    from kbmod_wf.task_impls.reproject_single_chip_single_night_wu_shard import reproject_wu_shard
+    from kbmod_wf.task_impls.reproject_single_chip_single_night_wu_shard import reproject_shard
 
     logger.info("Starting reproject_ic")
     with ErrorLogger(logger):
-        reproject_wu_shard(
+        reproject_shard(
             original_wu_filepath=inputs[0].filepath,
+            original_wcs=inputs[1],
             reprojected_wu_filepath=outputs[0].filepath,
             runtime_config=runtime_config,
             logger=logger,
@@ -94,33 +70,32 @@ def workflow_runner(env=None, runtime_config={}):
 
         # gather all the *.collection files that are staged for processing
         create_manifest_config = app_configs.get("create_manifest", {})
-        manifest_file = File(
-            os.path.join(create_manifest_config.get("output_directory", os.getcwd()), "manifest.txt")
-        )
+        manifest_file_path = Path(create_manifest_config.get("output_directory", os.getcwd()), "manifest.txt")
+
         create_manifest_future = create_manifest(
             inputs=[],
-            outputs=[manifest_file],
+            outputs=[File(manifest_file_path)],
             runtime_config=app_configs.get("create_manifest", {}),
             logging_file=logging_file,
         )
 
-        with open(create_manifest_future.result(), "r") as f:
-            # process each .collection file in the manifest into a .wu file
+        with open(create_manifest_future.result(), "r") as manifest:
+            # process each .collection file in the manifest
             original_work_unit_futures = []
-            for line in f:
+            for line in manifest:
                 # Create path object for the line in the manifest
                 input_file = Path(line.strip())
 
-                # Create a directory for the sharded work unit files
+                # Create a directory to contain each work unit's shards
                 sharded_directory = Path(input_file.parent, input_file.stem)
                 sharded_directory.mkdir(exist_ok=True)
 
-                # Create the work unit filepath
+                # Construct the work unit filepath
                 output_workunit_filepath = Path(sharded_directory, input_file.stem + ".wu")
 
                 # Create the work unit future
                 original_work_unit_futures.append(
-                    ic_to_wu(
+                    ic_to_wu_return_shards(
                         inputs=[input_file],
                         outputs=[File(output_workunit_filepath)],
                         runtime_config=app_configs.get("ic_to_wu", {}),
@@ -128,30 +103,28 @@ def workflow_runner(env=None, runtime_config={}):
                     )
                 )
 
-        # reproject each WorkUnit
+        # reproject each WorkUnit shard individually
         # For chip-by-chip, this isn't really necessary, so hardcoding to 0.
         reproject_futures = []
         for f in original_work_unit_futures:
-            distance = 0
-
-            unique_obstimes, unique_obstimes_indices = work_unit.get_unique_obstimes_and_indices()
-
-            reproject_futures.append(
-                reproject_wu(
-                    inputs=[f.result()],
-                    outputs=[File(f.result().filepath + f".{distance}.repro")],
+            shard_futures = []
+            for i in f.result():
+                shard_future = reproject_shard(
+                    inputs=[i],
+                    outputs=[File(i.parent / (i.stem + ".repro"))],
                     runtime_config=app_configs.get("reproject_wu", {}),
                     logging_file=logging_file,
                 )
-            )
+                shard_futures.append(shard_future)
+            reproject_futures.append(shard_futures)
 
         # run kbmod search on each reprojected WorkUnit
         search_futures = []
         for f in reproject_futures:
             search_futures.append(
                 kbmod_search(
-                    inputs=[f.result()],
-                    outputs=[File(f.result().filepath + ".search.ecsv")],
+                    inputs=[i.result() for i in f],
+                    outputs=[],
                     runtime_config=app_configs.get("kbmod_search", {}),
                     logging_file=logging_file,
                 )
