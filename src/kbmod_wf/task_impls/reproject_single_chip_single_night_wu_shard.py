@@ -43,7 +43,7 @@ def reproject_shard(
         and reprojection.
     """
 
-    wcs_list = [WCS(json.loads(wcs)) for wcs in original_wcs]
+    wcs_list = [WCS(json.loads(wcs), relax=True) for wcs in original_wcs]
 
     opt_wcs, shape = find_optimal_celestial_wcs(wcs_list)
     opt_wcs.array_shape = shape
