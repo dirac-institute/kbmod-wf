@@ -110,7 +110,7 @@ def workflow_runner(env=None, runtime_config={}):
         reproject_futures = []
         for f in original_work_unit_futures:
             shard_futures = []
-            shard_files, wcs = f.result()
+            shard_files, wcses = f.result()
             for i in shard_files:
                 shard_file = Path(i)
                 shard_future = reproject_shard(
