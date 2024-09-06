@@ -49,9 +49,32 @@ def reproject_shard(
     opt_wcs.array_shape = shape
 
     shard = fitsio.open(original_wu_shard_filepath)
-    sci = reproject_adaptive(shard, opt_wcs, hdu_in=0)
-    var = reproject_adaptive(shard, opt_wcs, hdu_in=1)
-    mask = reproject_adaptive(shard, opt_wcs, hdu_in=2)
+    sci = reproject_adaptive(
+        shard,
+        opt_wcs,
+        hdu_in=0,
+        shape_out=opt_wcs.array_shape,
+        bad_value_mode="ignore",
+        roundtrip_coords=False
+    )
+
+    var = reproject_adaptive(
+        shard,
+        opt_wcs,
+        hdu_in=1,
+        shape_out=opt_wcs.array_shape,
+        bad_value_mode="ignore",
+        roundtrip_coords=False
+    )
+
+    mask = reproject_adaptive(
+        shard,
+        opt_wcs,
+        hdu_in=2,
+        shape_out=opt_wcs.array_shape,
+        bad_value_mode="ignore",
+        roundtrip_coords=False
+    )
 
     shard[0].data = sci.astype(np.float32)
     shard[1].data = var.astype(np.float32)
