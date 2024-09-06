@@ -34,7 +34,7 @@ def reproject_shard(inputs=(), outputs=(), wcses=None, runtime_config={}, loggin
         reproject_shard(
             original_wu_shard_filepath=inputs[0].filepath,
             original_wcs=wcses,
-            reprojected_wu_filepath=outputs[0].filepath,
+            reprojected_wu_shard_filepath=outputs[0].filepath,
             runtime_config=runtime_config,
             logger=logger,
         )
