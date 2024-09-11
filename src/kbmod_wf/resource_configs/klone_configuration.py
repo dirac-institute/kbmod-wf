@@ -30,7 +30,7 @@ def klone_resource_config():
                     partition="ckpt-g2",
                     account="astro",
                     min_blocks=0,
-                    max_blocks=4,
+                    max_blocks=16,
                     init_blocks=0,
                     parallelism=1,
                     nodes_per_block=1,
@@ -70,7 +70,7 @@ def klone_resource_config():
                     partition="ckpt-g2",
                     account="astro",
                     min_blocks=0,
-                    max_blocks=10,
+                    max_blocks=16,
                     init_blocks=0,
                     parallelism=1,
                     nodes_per_block=1,
@@ -89,12 +89,12 @@ def klone_resource_config():
                     partition="ckpt-g2",
                     account="escience",
                     min_blocks=0,
-                    max_blocks=2,
+                    max_blocks=10,
                     init_blocks=0,
                     parallelism=1,
                     nodes_per_block=1,
                     cores_per_node=1,
-                    mem_per_node=128,  # In GB
+                    mem_per_node=64,  # In GB
                     exclusive=False,
                     walltime=walltimes["gpu_max"],
                     # Command to run before starting worker - i.e. conda activate <special_env>
