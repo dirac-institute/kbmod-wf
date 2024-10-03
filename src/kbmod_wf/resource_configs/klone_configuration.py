@@ -18,62 +18,81 @@ def klone_resource_config():
         app_cache=True,
         checkpoint_mode="task_exit",
         checkpoint_files=get_all_checkpoints(
-            os.path.join("/gscratch/dirac/kbmod/workflow/run_logs", datetime.date.today().isoformat())
+            os.path.join(os.path.abspath(os.curdir), datetime.date.today().isoformat())
         ),
-        run_dir=os.path.join("/gscratch/dirac/kbmod/workflow/run_logs", datetime.date.today().isoformat()),
+        run_dir=os.path.join(os.path.abspath(os.curdir), datetime.date.today().isoformat()),
         retries=1,
         executors=[
             HighThroughputExecutor(
-                label="small_cpu",
-                max_workers=1,
+                label="ckpt_96gb_8cpus",
+                max_workers=1,  # Do we mean max_workers_per_node here?
                 provider=SlurmProvider(
-                    partition="ckpt-g2",
-                    account="astro",
+                    partition="gpu-a40", # ckpt-all
+                    account="escience", # astro
                     min_blocks=0,
-                    max_blocks=4,
+                    max_blocks=5,
                     init_blocks=0,
                     parallelism=1,
                     nodes_per_block=1,
-                    cores_per_node=1,  # perhaps should be 8???
-                    mem_per_node=256,  # In GB
+                    mem_per_node=12, # 96 GB
+                    cores_per_node=8,
                     exclusive=False,
-                    walltime=walltimes["compute_bigmem"],
+                    walltime=walltimes["sharded_reproject"],
                     # Command to run before starting worker - i.e. conda activate <special_env>
                     worker_init="",
                 ),
             ),
             HighThroughputExecutor(
-                label="large_mem",
-                max_workers=1,
+                label="astro_2gb_2cpus",
+                max_workers=1,  # Do we mean max_workers_per_node here?
                 provider=SlurmProvider(
-                    partition="ckpt-g2",
-                    account="astro",
+                    partition="gpu-a40", # ckpt-all
+                    account="escience", # astro
                     min_blocks=0,
-                    max_blocks=2,
+                    max_blocks=5,
                     init_blocks=0,
                     parallelism=1,
                     nodes_per_block=1,
-                    cores_per_node=32,
-                    mem_per_node=512,
+                    mem_per_node=4,
+                    cores_per_node=2,
                     exclusive=False,
-                    walltime=walltimes["large_mem"],
+                    walltime=walltimes["sharded_reproject"],
                     # Command to run before starting worker - i.e. conda activate <special_env>
                     worker_init="",
                 ),
             ),
             HighThroughputExecutor(
-                label="sharded_reproject",
-                max_workers=1,
+                label="esci_2gb_2cpus",
+                max_workers=1,  # Do we mean max_workers_per_node here?
                 provider=SlurmProvider(
-                    partition="ckpt-g2",
-                    account="astro",
+                    partition="gpu-a40", # ckpt-all
+                    account="escience", # astro
                     min_blocks=0,
-                    max_blocks=2,
+                    max_blocks=5,
                     init_blocks=0,
                     parallelism=1,
                     nodes_per_block=1,
-                    cores_per_node=32,
-                    mem_per_node=128,  # ~2-4 GB per core
+                    mem_per_node=4,
+                    cores_per_node=2,
+                    exclusive=False,
+                    walltime=walltimes["sharded_reproject"],
+                    # Command to run before starting worker - i.e. conda activate <special_env>
+                    worker_init="",
+                ),
+            ),
+            HighThroughputExecutor(
+                label="ckpt_2gb_2cpus",
+                max_workers=1,  # Do we mean max_workers_per_node here?
+                provider=SlurmProvider(
+                    partition="gpu-a40", # ckpt-all
+                    account="escience", # astro
+                    min_blocks=0,
+                    max_blocks=5,
+                    init_blocks=0,
+                    parallelism=1,
+                    nodes_per_block=1,
+                    mem_per_node=4,
+                    cores_per_node=2,
                     exclusive=False,
                     walltime=walltimes["sharded_reproject"],
                     # Command to run before starting worker - i.e. conda activate <special_env>
@@ -84,27 +103,20 @@ def klone_resource_config():
                 label="gpu",
                 max_workers=1,
                 provider=SlurmProvider(
-                    partition="ckpt-g2",
+                    partition="gpu-a40",
                     account="escience",
                     min_blocks=0,
-                    max_blocks=2,
+                    max_blocks=4,
                     init_blocks=0,
                     parallelism=1,
                     nodes_per_block=1,
                     cores_per_node=2,  # perhaps should be 8???
-                    mem_per_node=512,  # In GB
+                    mem_per_node=12,  # 64 In GB
                     exclusive=False,
                     walltime=walltimes["gpu_max"],
                     # Command to run before starting worker - i.e. conda activate <special_env>
                     worker_init="",
                     scheduler_options="#SBATCH --gpus=1",
-                ),
-            ),
-            HighThroughputExecutor(
-                label="local_thread",
-                provider=LocalProvider(
-                    init_blocks=0,
-                    max_blocks=1,
                 ),
             ),
         ],
