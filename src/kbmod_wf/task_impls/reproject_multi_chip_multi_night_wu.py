@@ -96,7 +96,7 @@ class WUReprojector:
             wu._per_image_wcs,
             image_width,
             image_height,
-            wu.heliocentric_dist,
+            self.guess_dist, # heliocentric guess distance in AU
             Time(wu.get_all_obstimes(), format="mjd"),
             self.point_on_earth,
             npoints=10,

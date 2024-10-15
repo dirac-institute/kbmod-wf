@@ -101,16 +101,20 @@ def workflow_runner(env=None, runtime_config={}):
         # reproject each WorkUnit for a range of distances
         reproject_futures = []
         repro_wu_filenames = []
+        runtime_config=app_configs.get("reproject_wu", {})
         for i in range(len(original_work_unit_futures)):
             f = original_work_unit_futures[i]
-            for distance in [46.7, 30.6]: # The reprojected distance in AU
-                output_filename=wu_filenames[i]+ f".{distance}.repro"
+            # Get the requested heliocentric guess distances (in AU) for reflex correction.
+            # If none are provided, default to 42.0 AU.
+            distances = runtime_config["helio_guess_dists"] if "helio_guess_dists" in runtime_config else [42.0]
+            for dist in distances:
+                output_filename=wu_filenames[i]+ f".{dist}.repro"
                 repro_wu_filenames.append(output_filename)
                 reproject_futures.append(
                     reproject_wu(
-                        inputs=[f, distance],
+                        inputs=[f, dist],
                         outputs=[File(output_filename)],
-                        runtime_config=app_configs.get("reproject_wu", {}),
+                        runtime_config=runtime_config,
                         logging_file=logging_file,
                     )
                 )
