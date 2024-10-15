@@ -39,13 +39,14 @@ def reproject_wu(inputs=(), outputs=(), runtime_config={}, logging_file=None):
 
     logger = get_configured_logger("task.ic_to_wu", logging_file)
 
-    from kbmod_wf.task_impls.reproject_multi_chip_multi_night_wu_from_uris import reproject_wu
+    from kbmod_wf.task_impls.reproject_multi_chip_multi_night_wu import reproject_wu
+
 
     logger.info("Starting reproject_ic")
     with ErrorLogger(logger):
         reproject_wu(
             original_wu_filepath=inputs[0].filepath,
-            uri_filepath=inputs[1].filepath,
+            guess_dist=inputs[1],
             reprojected_wu_filepath=outputs[0].filepath,
             runtime_config=runtime_config,
             logger=logger,
