@@ -1,3 +1,4 @@
+import time
 import traceback
 import logging
 from logging import config
@@ -71,8 +72,8 @@ def get_configured_logger(logger_name, file_path=None):
     if file_path is not None:
         logconf["handlers"]["file"]["filename"] = file_path
     config.dictConfig(logconf)
+    logging.Formatter.converter = time.gmtime
     logger = logging.getLogger()
-
     return logging.getLogger(logger_name)
 
 
@@ -117,7 +118,7 @@ from astropy.time import Time, TimeDelta
 
 class Timeline(plt.Line2D):
     def __init__(self, linespec, name, name_pos="right", name_margin=None, name_fontsize=9,
-                 relative_to=None, units="hour", *args, **kwargs):
+                 relative_to=None, units="hour", color="black", *args, **kwargs):
         # We must marshal everything into datetime because time_support doesn't
         # seem to be working. If we get a TimeDelta, marshal the values into
         # the same units, and then strip the units into floats. Work strictly
@@ -140,13 +141,14 @@ class Timeline(plt.Line2D):
             self.name_pos = name_pos.datetime
 
         txtx, txty = self._get_name_pos(name_pos, name_margin, xvals, yvals, relative_to)
-        self.text = plt.Text(txtx, txty, name, verticalalignment="center", fontsize=name_fontsize)
+        self.text = plt.Text(txtx, txty, name, verticalalignment="center", fontsize=name_fontsize, color=color)
         self.text.set_text(name)
 
         # Leverage the math support of Time objects by casting this at the end
         if isinstance(relative_to, Time):
             self.origin = relative_to.datetime
 
+        self.linespec = linespec
         # The line segments can now be used blindly regardless of whether
         # we have a datetime objects, or floats
         self.name_margin = name_margin
@@ -155,7 +157,7 @@ class Timeline(plt.Line2D):
             name = line.pop("name")
             self.lines.append(plt.Line2D(**line))
 
-        super().__init__(xvals, yvals, *args, **kwargs)
+        super().__init__(xvals, yvals, *args, color=color, **kwargs)
 
     def _get_name_pos(self, name_pos, name_margin, xvals, yvals, relative_to):
         txty = yvals[0]
@@ -195,7 +197,7 @@ class Timeline(plt.Line2D):
     def axes(self, new_axes):
         self.text.axes = new_axes
         self.text.set_clip_box(new_axes.bbox)
-        self.text.set_clip_on(True)
+        #self.text.set_clip_on(True)
         # Call the superclass property setter.
         for line in self.lines:
             plt.Line2D.axes.fset(line, new_axes)
@@ -204,26 +206,12 @@ class Timeline(plt.Line2D):
         plt.Line2D.axes.fset(self, new_axes)
 
     def set_transform(self, transform):
-        texttrans = transform
-        self.text.set_transform(texttrans)
+        self.text.set_transform(transform)
         [l.set_transform(transform) for l in self.lines]
         super().set_transform(transform)
 
     def set_data(self, x, y):
-        txtx, txty = self._get_name_pos(
-            self.name_pos,
-            self.name_margin,
-            x,
-            y,
-            self.origin
-        )
-        self.text.set_position((txtx, txty))
-
-        for i, j in enumerate(range(0, len(x)-1, 2)):
-            xpair = (x[j], x[j+1])
-            ypair = (y[j], y[j+1])
-            self.lines[i].set_data(xpair, ypair)
-        super().set_data(x, y)
+        super().set_data((x[0], x[-1]), (y[0], y[-1]))
 
     def draw(self, renderer):
         super().draw(renderer)
@@ -250,32 +238,91 @@ class Log:
     fmt: str = r"\[(?P<process>[\w|-]*) (?P<thread>[\w|-]*) (?P<time>[\d|\-| |:|,]+) (?P<level>\w*) (?P<logger>.*)] (?P<msg>.*)$"
     """Log line format."""
 
-    def __init__(self, logfiles, name=None):
+    def __init__(self, logfiles, name=None, stepnames=None):
         # set the name from filename if not provided
         if name is None:
             name = os.path.commonprefix(logfiles)
             if os.sep in name:
                 name = os.path.basename(name)
-                
+
+        self.logfiles = logfiles
         self.name = name
-        self.success, self.error = True, False
+        self.stepnames = [] if stepnames is None else stepnames
+        self.nsteps = len(logfiles)
+        self.started = []
+        self.completed = []
+        self.success = []
 
         tables = []
         for f in logfiles:
             log = parse_logfile(f)
             tbl = Table(log)
-            if len(tbl) > 0:
-                tables.append(tbl)
-            elif "analysis" in f:
+            tbl.sort("time")
+            tbl = tbl.group_by(["process", "thread"])
+            
+            if len(tbl) == 0:
                 continue
-            else:
-                self.success = False
+            
+            tbl["stepname"] = "          "
+            tbl["stepidx"] = 0
+            for i, grp in enumerate(tbl.groups):
+                started, completed, success, stepname = self._parse_single(f, grp)
+                grp["stepname"] = stepname
+                grp["stepidx"] = i
+                self.stepnames.append(stepname)
+                self.started.append(started)
+                self.completed.append(completed)
+                self.success.append(success)
+            tables.append(tbl)
 
+        self.stepnames = np.array(self.stepnames)
+        self.started = np.array(self.started)
+        self.completed = np.array(self.completed)
+        self.success = np.array(self.success)
+        
         self.data = vstack(tables)
         if len(self.data) > 0:
             self.data["time"] = Time([Time.strptime(t, "%Y-%m-%d %H:%M:%S,%f") for t in self.data["time"]])
-            self.data.sort("time")
+            self.data.sort(["time", "stepidx"])
             self.error = not any(["Traceback" in msg for msg in self.data["msg"]])
+            self.data = self.data.group_by(["stepname", "stepidx"])
+
+    def _parse_single(self, name, table):
+        started, completed, success = False, False, False
+        stepname = ""
+        
+        if len(table) == 0:
+            return started, completed, success
+
+        firstmsg, lastmsg = table[0]["msg"], table[-1]["msg"]        
+        if "resample" in name:
+            if "Building WorkUnit" in firstmsg:
+                started = True
+            if "Writing" in lastmsg:
+                completed = True
+            error = any(["Traceback" in msg for msg in table["msg"]])
+            success = not error and started and completed
+            stepname = "resample"
+        elif "search" in name:
+            if "Loading WorkUnit from FITS file" in firstmsg:
+                started = True
+            if "Saving results to" in lastmsg:
+                completed = True
+            error = any(["Traceback" in msg for msg in table["msg"]])
+            success = not error and started and completed
+            stepname = "search"
+        elif "analysis" in name:
+            if "No results found" in firstmsg:
+                started, completed, success = True, True, True
+            if "Creating analysis plots" in firstmsg:
+                started = True
+                nresults = int(firstmsg.split("Creating analysis plots for results of length:")[-1])
+                completed = len(table) > nresults
+            error = any(["Traceback" in msg for msg in table["msg"]])
+            success = not error and started and completed
+            stepname = "analysis"
+
+        return started, completed, success, stepname
 
     def __getitem__(self, key):
         return self.data[key]
@@ -305,18 +352,20 @@ class Log:
             return self.data[-1]["time"]
         return None
 
+    def sort(self, *args, **kwargs):
+        self.data.sort(*args, **kwargs)
+
     def select(self, **kwargs):
         mask = np.ones((len(self.data), ), dtype=bool)
         for arg, val in kwargs.items():
             mask = np.logical_and(mask, self.data[arg] == val)
         return self.data[mask]
 
-    def group_by(self, *args):
-        return self.data.group_by(*args)
+    def group_by(self, *args, **kwargs):
+        self.data = self.data.group_by(*args, **kwargs)
 
     def get_artist(self, y=0, relative_to=None, units="hour",  # Data params
-                   marker="o",  linestyle="--", color="black",  # Line params
-                   name_pos="right", name_margin=None,
+                   marker="o",  linestyle="--", name_pos="right", name_margin=None,
                    **kwargs):
 
         if len(self.data) == 0:
@@ -324,61 +373,56 @@ class Log:
 
         # Split up logs into groups based on execution location
         infologs = self.select(level="INFO")
-        grps = infologs.group_by(["process", "thread"])
-        start_times = {i: g[0]["time"] for i, g in enumerate(grps.groups)}
+        infologs.sort(["time", "stepname"])
+        infologs = infologs.group_by(["stepname", "stepidx"])
+
+        #grps = infologs.group_by(["process", "thread"])
+        start_times = {i: g[0]["time"] for i, g in enumerate(infologs.groups)}
         ordered_grp_idxs = sorted(start_times, key=lambda k: start_times[k])
 
         # Parse each step into line kwargs for viz purposes
         # This is a mix of what we know and best guess attempts
+        # a list of dictionaries, each of which is a
+        # full specification of a line segment where
+        # name is the value of the text printed above the
+        # line itself
         linespec = [
-            # a list of dictionaries, each of which is a
-            # full specification of a line segment where
-            # name is the value of the text printed above the
-            # line itself
         ]
 
         xvals, yvals = [], []
-        for idx in ordered_grp_idxs:
-            grp = grps.groups[idx]
-
-            tmp = "".join(grp["logger"])
-            error, name = False, None
-            success = "Saving" in grp[-1]["msg"] or "Writing" in grp[-1]["msg"] or "No results found"  in grp[-1]["msg"]
-            if "run_search" in tmp and "results" in tmp:
-                name = "run_search"
-                error = not self.success
-            elif "image_collection" in tmp and "work_unit" in tmp:
-                name = "resample"
-                error = not self.success
-            else:
-                # we don't know when we're preempted so we can't know
-                # which loggers we expect to see. This guess then depends
-                # on knowing which tasks run in each python app
-                if "run_search" in tmp:
-                    name = "run_search"
-                else:
-                    name = "resample"
-                error = any(["Traceback" in msg for msg in grp["msg"]])
-
+        for logidx, grpidx in enumerate(ordered_grp_idxs):
+            grp = infologs.groups[grpidx]
+            started, completed, success = self.started[logidx], self.completed[logidx], self.success[logidx]
+            stepname = self.stepnames[logidx]
+                
             xvals = [grp[0]["time"], grp[-1]["time"]]
             yvals = [y, y]
 
-            if self.success and success:
+            if started and completed and success:
                 segment_color = "green"
-            elif not success:
+            elif started and completed and not success:
+                segment_color = "red"
+            if started and not completed:
                 segment_color = "orange"
 
-            if error:
-                segment_color = "red"
-                #segment_color = "green" if self.success else "orange"
             linespec.append({
-                "name": name,
+                "name": stepname,
                 "xdata": xvals,
                 "ydata": yvals,
-                "color": "red" if error else segment_color,
+                "color": segment_color,
                 "linestyle": "-",
                 "marker": marker
             })
+
+        successfull_steps = self.stepnames[self.success]
+        if not all([
+                "resample" in successfull_steps,
+                "search" in successfull_steps,
+                "analysis" in successfull_steps
+        ]):
+            color = "red"
+        else:
+            color = "green"
 
         return Timeline(
             linespec,
@@ -447,12 +491,8 @@ def plot_campaign(ax, logs, relative_to_launch=True, units="hour",
             units=units,
             **kwargs
         )
-        if timeline is not None:
-            ax.add_artist(timeline)
-        else:
-            ax.axhline(y, color="red")
-            ax.text(workflow_start, y, log.name, fontsize=9)
-
+        ax.add_artist(timeline)
+        
     if relative_to_launch:
         ax.set_xlim(-0.2, duration+duration/10)
     else:
