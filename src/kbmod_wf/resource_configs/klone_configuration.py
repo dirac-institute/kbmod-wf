@@ -18,9 +18,9 @@ def klone_resource_config():
         app_cache=True,
         checkpoint_mode="task_exit",
         checkpoint_files=get_all_checkpoints(
-            os.path.join("/gscratch/dirac/kbmod/workflow/run_logs/wbeebe", datetime.date.today().isoformat())
+            os.path.join("/gscratch/dirac/kbmod/workflow/run_logs", datetime.date.today().isoformat())
         ),
-        run_dir=os.path.join("/gscratch/dirac/kbmod/workflow/run_logs/wbeebe", datetime.date.today().isoformat()),
+        run_dir=os.path.join("/gscratch/dirac/kbmod/workflow/run_logs", datetime.date.today().isoformat()),
         retries=1,
         executors=[
             HighThroughputExecutor(
@@ -46,8 +46,8 @@ def klone_resource_config():
                 label="large_mem",
                 max_workers=1,
                 provider=SlurmProvider(
-                    partition="gpu-a40",
-                    account="escience",
+                    partition="ckpt-g2",
+                    account="astro",
                     min_blocks=0,
                     max_blocks=2,
                     init_blocks=0,
@@ -65,8 +65,8 @@ def klone_resource_config():
                 label="sharded_reproject",
                 max_workers=1,
                 provider=SlurmProvider(
-                    partition="gpu-a40",
-                    account="escience",
+                    partition="ckpt-g2",
+                    account="astro",
                     min_blocks=0,
                     max_blocks=2,
                     init_blocks=0,
@@ -84,7 +84,7 @@ def klone_resource_config():
                 label="gpu",
                 max_workers=1,
                 provider=SlurmProvider(
-                    partition="gpu-a40",
+                    partition="ckpt-g2",
                     account="escience",
                     min_blocks=0,
                     max_blocks=2,
