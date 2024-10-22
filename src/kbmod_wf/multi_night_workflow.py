@@ -32,7 +32,7 @@ def reproject_wu(inputs=(), outputs=(), runtime_config={}, logging_file=None):
     with ErrorLogger(logger):
         reproject_wu(
             guess_dist,
-            original_wu_filepath=inputs[0].filepath,
+            ic_filepath=inputs[0],
             reprojected_wu_filepath=outputs[0].filepath,
             runtime_config=runtime_config,
             logger=logger,
@@ -79,45 +79,28 @@ def workflow_runner(env=None, runtime_config={}):
             logging_file=logging_file,
         )
 
-        wu_filenames =[]
-        with open(create_manifest_future.result(), "r") as f:
-            # process each .collection file in the manifest into a .wu file
-            original_work_unit_futures = []
-            collection_files = []
-            for line in f:
-                collection_file = File(line.strip())
-                collection_files.append(collection_file)
-                wu_filename = line + ".wu"
-                wu_filenames.append(wu_filename)
-                original_work_unit_futures.append(
-                    ic_to_wu(
-                        inputs=[collection_file],
-                        outputs=[File(wu_filename)],
-                        runtime_config=app_configs.get("ic_to_wu", {}),
-                        logging_file=logging_file,
-                    )
-                )
-
         # reproject each WorkUnit for a range of distances
         reproject_futures = []
         repro_wu_filenames = []
         runtime_config=app_configs.get("reproject_wu", {})
-        for i in range(len(original_work_unit_futures)):
-            f = original_work_unit_futures[i]
-            # Get the requested heliocentric guess distances (in AU) for reflex correction.
-            # If none are provided, default to 42.0 AU.
-            distances = runtime_config["helio_guess_dists"] if "helio_guess_dists" in runtime_config else [42.0]
-            for dist in distances:
-                output_filename=wu_filenames[i]+ f".{dist}.repro"
-                repro_wu_filenames.append(output_filename)
-                reproject_futures.append(
-                    reproject_wu(
-                        inputs=[f, dist],
-                        outputs=[File(output_filename)],
-                        runtime_config=runtime_config,
-                        logging_file=logging_file,
+        with open(create_manifest_future.result(), "r") as f:
+            for line in f:
+                collection_file = File(line.strip())
+                wu_filename = line + ".wu"
+                # Get the requested heliocentric guess distances (in AU) for reflex correction.
+                # If none are provided, default to 42.0 AU.
+                distances = runtime_config["helio_guess_dists"] if "helio_guess_dists" in runtime_config else [42.0]
+                for dist in distances:
+                    output_filename=wu_filename + f".{dist}.repro"
+                    repro_wu_filenames.append(output_filename)
+                    reproject_futures.append(
+                        reproject_wu(
+                            inputs=[collection_file, dist],
+                            outputs=[File(output_filename)],
+                            runtime_config=runtime_config,
+                            logging_file=logging_file,
+                        )
                     )
-                )
 
         # run kbmod search on each reprojected WorkUnit
         search_futures = []

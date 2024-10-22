@@ -1,8 +1,11 @@
 import kbmod
+from kbmod import ImageCollection
 from kbmod.work_unit import WorkUnit
 from kbmod.reprojection_utils import transform_wcses_to_ebd
 
+
 import kbmod.reprojection as reprojection
+from kbmod_wf.task_impls.ic_to_wu import ic_to_wu
 from astropy.wcs import WCS
 from astropy.io import fits
 from astropy.coordinates import EarthLocation
@@ -15,7 +18,7 @@ from logging import Logger
 
 def reproject_wu(
     guess_dist: float,
-    original_wu_filepath: str = None,
+    ic_filepath: str,
     reprojected_wu_filepath: str = None,
     runtime_config: dict = {},
     logger: Logger = None,
@@ -26,8 +29,8 @@ def reproject_wu(
     ----------
     guess_dist: float
         The heliocentric guess distance to reproject to in AU.
-    original_wu_filepath : str, optional
-        The fully resolved filepath to the input WorkUnit file, by default None
+    ic_filepath : str
+        The fully resolved filepath to the input ImageCollection file
     reprojected_wu_filepath : str, optional
         The fully resolved filepath to the resulting WorkUnit file after reflex
         and reprojection, by default None
@@ -44,7 +47,7 @@ def reproject_wu(
     """
     wu_reprojector = WUReprojector(
         guess_dist=guess_dist,
-        original_wu_filepath=original_wu_filepath,
+        ic_filepath=ic_filepath,
         reprojected_wu_filepath=reprojected_wu_filepath,
         runtime_config=runtime_config,
         logger=logger,
@@ -57,13 +60,13 @@ class WUReprojector:
     def __init__(
         self,
         guess_dist: float,
-        original_wu_filepath: str = None,
+        ic_filepath: str = None,
         reprojected_wu_filepath: str = None,
         runtime_config: dict = {},
         logger: Logger = None,
     ):
         self.guess_dist = guess_dist
-        self.original_wu_filepath = original_wu_filepath
+        self.ic_filepath = ic_filepath
         self.reprojected_wu_filepath = reprojected_wu_filepath
         self.runtime_config = runtime_config
         self.logger = logger
@@ -79,12 +82,17 @@ class WUReprojector:
 
     def reproject_workunit(self):
         last_time = time.time()
-        self.logger.info(f"Lazy reading existing WorkUnit from disk: {self.original_wu_filepath}")
-        directory_containing_shards, wu_filename = os.path.split(self.original_wu_filepath)
-        wu = WorkUnit.from_sharded_fits(wu_filename, directory_containing_shards, lazy=True)
+        self.logger.info(f"Loading a WorkUnit from ImageCollection at {self.ic_filepath}")
+        wu = ic_to_wu(
+            ic_filepath=self.ic_filepath,
+            wu_filepath=None,
+            save=False, 
+            runtime_config=self.runtime_config, 
+            logger=self.logger,
+        )
         elapsed = round(time.time() - last_time, 1)
         self.logger.debug(
-            f"Required {elapsed}[s] to lazy read original WorkUnit {self.original_wu_filepath}."
+            f"Required {elapsed}[s] to create original WorkUnit from ImageCollection at {self.ic_filepath}."
         )
 
         #! This method to get image dimensions won't hold if the images are different sizes.
@@ -118,17 +126,19 @@ class WUReprojector:
         self.logger.debug(f"Reprojecting WorkUnit with {self.n_workers} workers...")
         last_time = time.time()
 
-        directory_containing_reprojected_shards, reprojected_wu_filename = os.path.split(
-            self.reprojected_wu_filepath
-        )
-        reprojection.reproject_lazy_work_unit(
+        # Use the global WCS that was specified from the ImageCollection.
+        ic = ImageCollection.read(self.ic_filepath, format="ascii.ecsv")
+        common_wcs = WCS(ic["global_wcs"][0])
+
+        resampled_wu = reprojection.reproject_work_unit(
             wu,
-            wu.wcs, # Use the common WCS of the WorkUnit
-            directory_containing_reprojected_shards,
-            reprojected_wu_filename,
+            common_wcs,
+            parallelize=True,
             frame="ebd",
             max_parallel_processes=self.n_workers,
         )
+        directory_containing_shards, wu_filename = os.path.split(self.reprojected_wu_filepath)
+        resampled_wu.to_sharded_fits(wu_filename, directory_containing_shards, overwrite=self.overwrite)
         elapsed = round(time.time() - last_time, 1)
         self.logger.debug(f"Required {elapsed}[s] to create the sharded reprojected WorkUnit.")
 

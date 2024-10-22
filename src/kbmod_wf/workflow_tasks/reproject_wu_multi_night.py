@@ -14,7 +14,7 @@ def reproject_wu(inputs=(), outputs=(), runtime_config={}, logging_file=None):
     Parameters
     ----------
     inputs : tuple, optional
-        A tuple with a single parsl.File object that references the original WorkUnit
+        A tuple with a single parsl.File object that references the ImageCollection
         file, by default ()
     outputs : tuple, optional
         A tuple with a single parsl.File object that references the reprojected
@@ -37,7 +37,7 @@ def reproject_wu(inputs=(), outputs=(), runtime_config={}, logging_file=None):
     """
     from kbmod_wf.utilities.logger_utilities import get_configured_logger, ErrorLogger
 
-    logger = get_configured_logger("task.ic_to_wu", logging_file)
+    logger = get_configured_logger("task.reproject_wu", logging_file)
 
     from kbmod_wf.task_impls.reproject_multi_chip_multi_night_wu import reproject_wu
 
@@ -45,7 +45,7 @@ def reproject_wu(inputs=(), outputs=(), runtime_config={}, logging_file=None):
     logger.info("Starting reproject_ic")
     with ErrorLogger(logger):
         reproject_wu(
-            original_wu_filepath=inputs[0].filepath,
+            ic_filepath=inputs[0].filepath,
             guess_dist=inputs[1],
             reprojected_wu_filepath=outputs[0].filepath,
             runtime_config=runtime_config,
