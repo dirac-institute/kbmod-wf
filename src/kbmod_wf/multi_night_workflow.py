@@ -13,7 +13,7 @@ from kbmod_wf.utilities import (
     get_configured_logger,
 )
 
-from kbmod_wf.workflow_tasks import create_manifest, ic_to_wu, reproject_wu_multi_night, kbmod_search
+from kbmod_wf.workflow_tasks import create_manifest, kbmod_search
 
 
 @python_app(
