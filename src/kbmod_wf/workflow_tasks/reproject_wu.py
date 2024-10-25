@@ -39,7 +39,7 @@ def reproject_wu(inputs=(), outputs=(), runtime_config={}, logging_file=None):
 
     logger = get_configured_logger("task.ic_to_wu", logging_file)
 
-    from kbmod_wf.task_impls.reproject_multi_chip_multi_night_wu import reproject_wu
+    from kbmod_wf.task_impls.reproject_multi_chip_multi_night_wu_from_uris import reproject_wu
 
     logger.info("Starting reproject_ic")
     with ErrorLogger(logger):

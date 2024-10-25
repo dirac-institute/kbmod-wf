@@ -9,7 +9,7 @@ from logging import Logger
 
 
 def ic_to_wu(
-    ic_filepath: str = None, wu_filepath: str = None, runtime_config: dict = {}, logger: Logger = None
+    ic_filepath: str = None, wu_filepath: str = None, save: bool = True, runtime_config: dict = {}, logger: Logger = None
 ):
     """This task will convert an ImageCollection to a WorkUnit.
 
@@ -19,6 +19,8 @@ def ic_to_wu(
         The fully resolved filepath to the input ImageCollection file, by default None
     wu_filepath : str, optional
         The fully resolved filepath for the output WorkUnit file, by default None
+    save : bool, optional
+        Flag to save the WorkUnit to disk, by default True. If False, the WorkUnit is returned.
     runtime_config : dict, optional
         Additional configuration parameters to be used at runtime, by default {}
     logger : Logger, optional
@@ -26,11 +28,11 @@ def ic_to_wu(
 
     Returns
     -------
-    str
-        The fully resolved filepath of the output WorkUnit file.
+    str | WorkUnit
+        The fully resolved filepath of the output WorkUnit file or the WorkUnit object itself if save=False.
     """
     ic_to_wu_converter = ICtoWUConverter(
-        ic_filepath=ic_filepath, wu_filepath=wu_filepath, runtime_config=runtime_config, logger=logger
+        ic_filepath=ic_filepath, wu_filepath=wu_filepath, save=save, runtime_config=runtime_config, logger=logger
     )
 
     return ic_to_wu_converter.create_work_unit()
@@ -41,25 +43,19 @@ class ICtoWUConverter:
         self,
         ic_filepath: str = None,
         wu_filepath: str = None,
+        save: bool = True,
         runtime_config: dict = {},
         logger: Logger = None,
     ):
         self.ic_filepath = ic_filepath
         self.wu_filepath = wu_filepath
+        self.save = save
         self.runtime_config = runtime_config
         self.logger = logger
 
-        self.overwrite = self.runtime_config.get("overwrite", False)
         self.search_config_filepath = self.runtime_config.get("search_config_filepath", None)
 
     def create_work_unit(self):
-        if len(glob.glob(self.wu_filepath)):
-            if self.overwrite:
-                self.logger.info(f"Overwrite was {self.overwrite}. Deleting existing {self.wu_filepath}.")
-                os.remove(self.wu_filepath)
-            else:
-                make_wu = False
-
         ic = ImageCollection.read(self.ic_filepath, format="ascii.ecsv")
         self.logger.info(f"ImageCollection read from {self.ic_filepath}, creating work unit next.")
 
@@ -75,6 +71,10 @@ class ICtoWUConverter:
         )
         elapsed = round(time.time() - last_time, 1)
         self.logger.debug(f"Required {elapsed}[s] to create WorkUnit.")
+
+        if not self.save:
+            self.logger.debug(f"Required {elapsed}[s] to create the WorkUnit.")
+            return orig_wu
 
         self.logger.info(f"Saving sharded work unit to: {self.wu_filepath}")
         last_time = time.time()
