@@ -18,9 +18,5 @@ def dev_resource_config():
         checkpoint_files=get_all_checkpoints(
             os.path.join(project_dir, "run_logs", datetime.date.today().isoformat())
         ),
-        executors=[
-            ThreadPoolExecutor(
-                label="local_dev_testing",
-            )
-        ],
+        executors=[ThreadPoolExecutor(label="local_dev_testing", max_threads=3)],
     )
