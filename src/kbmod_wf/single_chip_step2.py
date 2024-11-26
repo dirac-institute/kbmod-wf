@@ -1,5 +1,15 @@
 import logging
-logging.basicConfig(level=logging.INFO)
+
+from kbmod_wf.utilities import (
+    LOGGING_CONFIG,
+    apply_runtime_updates,
+    get_resource_config,
+    get_executors,
+    get_configured_logger,
+    ErrorLogger
+)
+
+logging.config.dictConfig(LOGGING_CONFIG)
 
 import argparse
 import os
@@ -11,47 +21,82 @@ from parsl import python_app, File
 import parsl.executors
 import time
 
-from kbmod_wf.utilities import (
-    apply_runtime_updates,
-    get_resource_config,
-    get_executors,
-    get_configured_logger,
-)
-
 
 @python_app(
     cache=True,
-    executors=get_executors(["local_dev_testing", "gpu"]),
+    executors=get_executors(["local_dev_testing", "ckpt_32gb_2cpu_1gpu"]),
     ignore_for_cache=["logging_file"],
 )
 def step2(inputs=(), outputs=(), runtime_config={}, logging_file=None):
+    """Load an resampled WorkUnit and search through it.
+
+    Parameters
+    ----------
+    inputs : `tuple` or `list`
+        Order sensitive input to the Python App.
+    outputs : `tuple` or `list`
+        Order sensitive output of the Python App.
+    runtime_config : `dict`, optional
+        Runtime configuration values. No values are consumed.
+    logging_file : `File` or `None`, optional
+        Parsl File object poiting to the output logging file.
+
+    Returns
+    -------
+    outputs : `tuple` or `list`
+        Order sensitive output of the Python App.
+
+    Inputs
+    ----------
+    wu_file : `File`
+         Parsl File object pointing to the WorkUnit.
+    ic_file : `File`
+         Parsl File object poiting to the associated ImageCollection.
+
+    Outputs
+    -------
+    results : `File`
+        Parsl File object poiting to the results.
+    """
     from kbmod_wf.utilities.logger_utilities import get_configured_logger, ErrorLogger
-    logger = get_configured_logger("task.step2", logging_file.filepath)
+    logger = get_configured_logger("workflow.step2", logging_file.filepath)
 
     import json
-    
+
+    from kbmod import ImageCollection
     from kbmod.work_unit import WorkUnit
     from kbmod.run_search import SearchRunner
 
     with ErrorLogger(logger):
-        wu = WorkUnit.from_fits(inputs[0])
+        wu_path = inputs[0][0].filepath
+        coll_path = inputs[1].filepath
+
+        # Run the search
+        ic = ImageCollection.read(coll_path)
+        ic.data.sort("mjd_mid")
+        wu = WorkUnit.from_fits(wu_path)
         res = SearchRunner().run_search_from_work_unit(wu)
 
-        # a WCS in the results table would be very helpful
-        # so add it in.
+        # add useful metadata to the results
         header = wu.wcs.to_header(relax=True)
-        h, w = wu.wcs.pixel_shape
-        header["NAXIS1"], header["NAXIS2"] = h, w
+        header["NAXIS1"], header["NAXIS2"] = wu.wcs.pixel_shape
         res.table.meta["wcs"] = json.dumps(dict(header))
+        res.table.meta["visits"] = list(ic["visit"].data)
+        res.table.meta["detector"] = ic["detector"][0]
+        res.table.meta["mjd_mid"] = list(ic["mjd_mid"].data)
+        res.table["uuid"] = [uuid.uuid4().hex for i in range(len(res.table))]
 
-        # write the results to a file
-        res.write_table(outputs[0].filepath)
+        # write results
+        res.write_table(outputs[0].filepath, overwrite=True)
 
     return outputs
 
 
 def workflow_runner(env=None, runtime_config={}):
-    """This function will load and configure Parsl, and run the workflow.
+    """Find all WorkUnits in the given directory and run KBMOD
+    search on them.
+
+    Requires matching image collections directory path.
 
     Parameters
     ----------
@@ -63,8 +108,9 @@ def workflow_runner(env=None, runtime_config={}):
     """
     resource_config = get_resource_config(env=env)
     resource_config = apply_runtime_updates(resource_config, runtime_config)
+    workflow_config = runtime_config.get("workflow", {})
     app_configs = runtime_config.get("apps", {})
-                              
+
     dfk = parsl.load(resource_config)
     logger = get_configured_logger("workflow.workflow_runner")
     
@@ -73,30 +119,38 @@ def workflow_runner(env=None, runtime_config={}):
             logger.info(f"Using runtime configuration definition:\n{toml.dumps(runtime_config)}")
 
         logger.info("Starting workflow")
-        
-        #directory_path = runtime_config.get("staging_directory", "resampled_wus")
-        directory_path = "resampled_wus"
-        file_pattern = "*.wu"
-        pattern = os.path.join(directory_path, file_pattern)
-        entries = glob.glob(pattern)
-        logger.info(f"Found {len(entries)} files in {directory_path}")
 
-        # run kbmod search on each reprojected WorkUnit
-        search_futures = []
-        for workunit in entries:
-            wuname = os.path.basename(workunit)
+        resampledwus_dirpath = "resampled_wus"
+        imgcolls_dirpath = "collections"
+        
+        wufile_pattern = "*.wu"
+        pattern = os.path.join(resampledwus_dirpath, wufile_pattern)
+        wus = glob.glob(pattern)
+
+        collnames, collfiles = [], []
+        for wupth in wus:
+            wuname = os.path.basename(wupth)
             wuname = wuname.split(".")[0]
-            open(f"logs/{wuname}.search.log", "w").close()
-            logging_file = File(f"logs/{wuname}.search.log")
-            search_futures.append(
+            collnames.append(wuname)
+            pattern = os.path.join(imgcolls_dirpath, wuname) + "*"
+            collfiles.extend(glob.glob(pattern))
+            
+        logger.info(f"Found {len(wus)} WorkUnits in {resampledwus_path}")
+
+        # Register step 2 for each output of step 1
+        results = []
+        for resample, collname, collfile in zip(wus, collnames, collfiles):
+            logger.info(f"Registering {collname} for step2 of {collfile.filepath}")
+            logging_file = File(f"logs/{collname}.search.log")
+            results.append(
                 step2(
-                    inputs=[workunit,],
-                    outputs=[File(f"results/{wuname}.results.ecsv")],
-                    runtime_config=app_configs.get("kbmod_search", {}),
+                    inputs=[resample, collfile],
+                    outputs=[File(f"results/{collname}.results.ecsv"),],
+                    runtime_config=app_configs.get("step2", {}),
                     logging_file=logging_file,
                 )
             )
-            
+
         [f.result() for f in search_futures]
         logger.info("Workflow complete")
 

@@ -21,7 +21,7 @@ def klone_resource_config():
             os.path.join(os.path.abspath(os.curdir), datetime.date.today().isoformat())
         ),
         run_dir=os.path.join(os.path.abspath(os.curdir), datetime.date.today().isoformat()),
-        retries=2,
+        retries=1,
         executors=[
             ####################
             #          Resample resources
@@ -303,7 +303,7 @@ def klone_resource_config():
                     partition="ckpt-all", # ckpt-all
                     account="astro", # astro
                     min_blocks=0,
-                    max_blocks=55, # can leave large at all times
+                    max_blocks=100, # can leave large at all times
                     init_blocks=0,
                     parallelism=1,
                     nodes_per_block=1,
