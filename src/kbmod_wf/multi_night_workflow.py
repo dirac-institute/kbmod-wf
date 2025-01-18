@@ -127,7 +127,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--env",
         type=str,
-        choices=["dev", "klone"],
+        choices=["dev", "klone", "usdf"],
         help="The environment to run the workflow in.",
     )
 
