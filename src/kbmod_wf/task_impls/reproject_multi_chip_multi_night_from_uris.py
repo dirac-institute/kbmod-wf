@@ -116,13 +116,12 @@ class WUReprojector:
             f"Required {elapsed}[s] to lazy read original WorkUnit {self.original_wu_filepath}."
         )
 
-        #! This method to get image dimensions won't hold if the images are different sizes.
-        image_height, image_width = wu._per_image_wcs[0].array_shape
+        image_height, image_width = wu.get_wcs(0).array_shape
 
         # Find the EBD (estimated barycentric distance) WCS for each image
         last_time = time.time()
         ebd_per_image_wcs, geocentric_dists = transform_wcses_to_ebd(
-            wu._per_image_wcs,
+            [wu.get_wcs(i) for i in range(len(wu))],
             image_width,
             image_height,
             self.guess_dist,
@@ -134,14 +133,9 @@ class WUReprojector:
         elapsed = round(time.time() - last_time, 1)
         self.logger.debug(f"Required {elapsed}[s] to transform WCS objects to EBD..")
 
-        if len(wu._per_image_wcs) != len(ebd_per_image_wcs):
-            raise ValueError(
-                f"Number of barycentric WCS objects ({len(ebd_per_image_wcs)}) does not match the original number of images ({len(wu._per_image_wcs)})."
-            )
-
-        wu._per_image_ebd_wcs = ebd_per_image_wcs
+        wu.org_img_meta["ebd_wcs"] = ebd_per_image_wcs
         wu.heliocentric_distance = self.guess_dist
-        wu.geocentric_distances = geocentric_dists
+        wu.org_img_meta["geocentric_distance"] = geocentric_dists
 
         # Reproject to a common WCS using the WCS for our patch
         self.logger.debug(f"Reprojecting WorkUnit with {self.n_workers} workers...")
