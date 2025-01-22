@@ -70,7 +70,7 @@ def usdf_resource_config():
                 label="sharded_reproject",
                 max_workers=1,
                 provider=SlurmProvider(
-                    partition="ampere",
+                    partition="milano",
                     account=account_name,
                     min_blocks=0,
                     max_blocks=2,
@@ -78,7 +78,7 @@ def usdf_resource_config():
                     parallelism=1,
                     nodes_per_block=1,
                     cores_per_node=32,
-                    mem_per_node=900,  # ~2-4 GB per core
+                    mem_per_node=512,  # ~2-4 GB per core
                     exclusive=False,
                     walltime=walltimes["sharded_reproject"],
                     scheduler_options='#SBATCH --export=ALL',  # Add other options as needed
