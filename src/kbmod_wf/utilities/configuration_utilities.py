@@ -5,14 +5,14 @@ from typing import Literal
 from kbmod_wf.resource_configs import *
 
 
-def get_resource_config(env: Literal["dev", "klone"] | None = None):
+def get_resource_config(env: Literal["dev", "klone", "usdf"] | None = None):
     """A naive attempt to return a reasonable configuration using platform.system.
     This will likely be insufficient in a very short amount of time, but this
     is meant to be a first step.
 
     Parameters
     ----------
-    env : Literal["dev", "klone"] | None, optional
+    env : Literal["dev", "klone", "usdf"] | None, optional
         The common name used to retrieve the given configuration, by default None.
         If none, the configuration will be determined by the platform.system().
 
@@ -38,6 +38,8 @@ def get_resource_config(env: Literal["dev", "klone"] | None = None):
         config = dev_resource_config()
     elif env == "klone":
         config = klone_resource_config()
+    elif env == "usdf":
+        config = usdf_resource_config()
     else:
         raise ValueError(f"Unknown environment: {env}")
 
