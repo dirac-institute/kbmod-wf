@@ -27,7 +27,8 @@ def reproject_wu(inputs=(), outputs=(), runtime_config={}, logging_file=None):
     logger = get_configured_logger("task.reproject_wu", logging_file.filepath)
 
     from kbmod_wf.task_impls.reproject_multi_chip_multi_night_wu import reproject_wu
-    guess_dist = inputs[1] # heliocentric guess distance in AU
+
+    guess_dist = inputs[1]  # heliocentric guess distance in AU
     logger.info(f"Starting reproject_ic for guess distance {guess_dist}")
     with ErrorLogger(logger):
         reproject_wu(
@@ -82,16 +83,18 @@ def workflow_runner(env=None, runtime_config={}):
         # reproject each WorkUnit for a range of distances
         reproject_futures = []
         repro_wu_filenames = []
-        runtime_config=app_configs.get("reproject_wu", {})
+        runtime_config = app_configs.get("reproject_wu", {})
         with open(create_manifest_future.result(), "r") as f:
             for line in f:
                 collection_file = File(line.strip())
                 wu_filename = line + ".wu"
                 # Get the requested heliocentric guess distances (in AU) for reflex correction.
                 # If none are provided, default to 42.0 AU.
-                distances = runtime_config["helio_guess_dists"] if "helio_guess_dists" in runtime_config else [42.0]
+                distances = (
+                    runtime_config["helio_guess_dists"] if "helio_guess_dists" in runtime_config else [42.0]
+                )
                 for dist in distances:
-                    output_filename=wu_filename + f".{dist}.repro"
+                    output_filename = wu_filename + f".{dist}.repro"
                     repro_wu_filenames.append(output_filename)
                     reproject_futures.append(
                         reproject_wu(

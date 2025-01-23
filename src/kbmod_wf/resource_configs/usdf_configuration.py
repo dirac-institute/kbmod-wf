@@ -12,9 +12,10 @@ walltimes = {
     "gpu_max": "08:00:00",
 }
 
-base_path = '/sdf/data/rubin/user/wbeebe/parsl/workflow_output'
+base_path = "/sdf/data/rubin/user/wbeebe/parsl/workflow_output"
 
-account_name = 'rubin:commissioning'
+account_name = "rubin:commissioning"
+
 
 def usdf_resource_config():
     return Config(
@@ -41,7 +42,7 @@ def usdf_resource_config():
                     mem_per_node=256,  # In GB
                     exclusive=False,
                     walltime=walltimes["compute_bigmem"],
-                    scheduler_options='#SBATCH --export=ALL',  # Add other options as needed
+                    scheduler_options="#SBATCH --export=ALL",  # Add other options as needed
                     # Command to run before starting worker - i.e. conda activate <special_env>
                     worker_init="",
                 ),
@@ -61,7 +62,7 @@ def usdf_resource_config():
                     mem_per_node=512,
                     exclusive=False,
                     walltime=walltimes["large_mem"],
-                    scheduler_options='#SBATCH --export=ALL',  # Add other options as needed
+                    scheduler_options="#SBATCH --export=ALL",  # Add other options as needed
                     # Command to run before starting worker - i.e. conda activate <special_env>
                     worker_init="",
                 ),
@@ -81,7 +82,7 @@ def usdf_resource_config():
                     mem_per_node=512,  # ~2-4 GB per core
                     exclusive=False,
                     walltime=walltimes["sharded_reproject"],
-                    scheduler_options='#SBATCH --export=ALL',  # Add other options as needed
+                    scheduler_options="#SBATCH --export=ALL",  # Add other options as needed
                     # Command to run before starting worker - i.e. conda activate <special_env>
                     worker_init="",
                 ),
@@ -110,7 +111,7 @@ def usdf_resource_config():
                 label="large_gpu",
                 max_workers=1,
                 provider=SlurmProvider(
-                    partition="turing", # TODO verify this
+                    partition="turing",  # TODO verify this
                     account=account_name,
                     min_blocks=0,
                     max_blocks=2,

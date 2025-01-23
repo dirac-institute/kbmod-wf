@@ -54,6 +54,12 @@ class KBMODSearcher:
         self.results_directory = os.path.dirname(self.result_filepath)
 
     def run_search(self):
+        # Check that KBMOD has access to a GPU before starting the search.
+        if not kbmod.search.HAS_GPU:
+            raise RuntimeError("Code compiled without GPU support.")
+        else:
+            self.logger.info("Confirmed GPU avaliable.")
+
         self.logger.info("Loading workunit from file")
         directory_containing_shards, wu_filename = os.path.split(self.input_wu_filepath)
         wu = WorkUnit.from_sharded_fits(wu_filename, directory_containing_shards, lazy=False)
