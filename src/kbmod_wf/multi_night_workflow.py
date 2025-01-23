@@ -27,6 +27,7 @@ def reproject_wu(inputs=(), outputs=(), runtime_config={}, logging_file=None):
     logger = get_configured_logger("task.reproject_wu", logging_file.filepath)
 
     from kbmod_wf.task_impls.reproject_multi_chip_multi_night_wu import reproject_wu
+
     guess_dist = inputs[1]  # heliocentric guess distance in AU
     logger.info(f"Starting reproject_ic for guess distance {guess_dist}")
     with ErrorLogger(logger):
