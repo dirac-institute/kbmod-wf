@@ -86,8 +86,8 @@ class WUReprojector:
         wu = ic_to_wu(
             ic_filepath=self.ic_filepath,
             wu_filepath=None,
-            save=False, 
-            runtime_config=self.runtime_config, 
+            save=False,
+            runtime_config=self.runtime_config,
             logger=self.logger,
         )
         elapsed = round(time.time() - last_time, 1)
@@ -104,7 +104,7 @@ class WUReprojector:
             [wu.get_wcs(i) for i in range(len(wu))],
             image_width,
             image_height,
-            self.guess_dist, # heliocentric guess distance in AU
+            self.guess_dist,  # heliocentric guess distance in AU
             Time(wu.get_all_obstimes(), format="mjd"),
             self.point_on_earth,
             npoints=10,
@@ -125,8 +125,11 @@ class WUReprojector:
         ic = ImageCollection.read(self.ic_filepath, format="ascii.ecsv")
 
         # Pick the first global WCS and pixel shape from the ImageCollection
-        common_wcs = WCS(ic.data['global_wcs'][0])
-        common_wcs.pixel_shape = (ic.data['global_wcs_pixel_shape_0'][0], ic.data['global_wcs_pixel_shape_1'][0])
+        common_wcs = WCS(ic.data["global_wcs"][0])
+        common_wcs.pixel_shape = (
+            ic.data["global_wcs_pixel_shape_0"][0],
+            ic.data["global_wcs_pixel_shape_1"][0],
+        )
 
         resampled_wu = reprojection.reproject_work_unit(
             wu,

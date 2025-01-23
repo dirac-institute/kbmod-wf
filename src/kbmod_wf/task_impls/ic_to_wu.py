@@ -9,7 +9,11 @@ from logging import Logger
 
 
 def ic_to_wu(
-    ic_filepath: str = None, wu_filepath: str = None, save: bool = True, runtime_config: dict = {}, logger: Logger = None
+    ic_filepath: str = None,
+    wu_filepath: str = None,
+    save: bool = True,
+    runtime_config: dict = {},
+    logger: Logger = None,
 ):
     """This task will convert an ImageCollection to a WorkUnit.
 
@@ -32,7 +36,11 @@ def ic_to_wu(
         The fully resolved filepath of the output WorkUnit file or the WorkUnit object itself if save=False.
     """
     ic_to_wu_converter = ICtoWUConverter(
-        ic_filepath=ic_filepath, wu_filepath=wu_filepath, save=save, runtime_config=runtime_config, logger=logger
+        ic_filepath=ic_filepath,
+        wu_filepath=wu_filepath,
+        save=save,
+        runtime_config=runtime_config,
+        logger=logger,
     )
 
     return ic_to_wu_converter.create_work_unit()
