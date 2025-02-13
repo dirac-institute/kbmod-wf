@@ -151,3 +151,6 @@ _html/
 
 # Parsl log files
 run_logs/
+
+# Emacs
+*~
