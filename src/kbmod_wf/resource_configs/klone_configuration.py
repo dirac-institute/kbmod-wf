@@ -18,10 +18,10 @@ def klone_resource_config():
         app_cache=True,
         checkpoint_mode="task_exit",
         checkpoint_files=get_all_checkpoints(
-            os.path.join(os.path.abspath(os.curdir), datetime.date.today().isoformat())
+            os.path.join(os.path.abspath(os.curdir), "parsl_rundir")
         ),
-        run_dir=os.path.join(os.path.abspath(os.curdir), datetime.date.today().isoformat()),
-        retries=1,
+        run_dir=os.path.join(os.path.abspath(os.curdir), "parsl_rundir"),
+        retries=4,
         executors=[
             ####################
             #          Resample resources
@@ -182,7 +182,7 @@ def klone_resource_config():
                     partition="gpu-a40",
                     account="escience",
                     min_blocks=0,
-                    max_blocks=4,  # low block count for shared resource
+                    max_blocks=6,  # low block count for shared resource
                     init_blocks=0,
                     parallelism=1,
                     nodes_per_block=1,
