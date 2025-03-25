@@ -1,7 +1,6 @@
 # Example parsl config associated with wu_to_uncertainties_workflow.python_app
 # To run on USDF, run:
-# python /[YOUR_BASE_PATH]/kbmod-wf/src/kbmod_wf/multi_night_workflow.py --runtime_config=[PATH OF THIS RUNTIME CONFIG] --env=USDF
-
+# python /[YOUR_BASE_PATH]/kbmod-wf/src/kbmod_wf/wu_to_uncertainties_workflow.py --runtime-config=[PATH OF THIS RUNTIME CONFIG] --env=usdf
 
 # All values set here will be applied to the resource configuration prior to 
 # calling parsl.load(config). Even if the key does't exist in the resource

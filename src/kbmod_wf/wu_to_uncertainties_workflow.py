@@ -202,6 +202,8 @@ def workflow_runner(env=None, runtime_config={}):
 
         logger.info("Starting workflow")
 
+        runtime_config=app_configs.get("get_uncertainties", {})
+
         # Get filenames from runtime config
         wu_path = runtime_config.get("wu_path", None)
         wu_name = os.path.basename(wu_path)
