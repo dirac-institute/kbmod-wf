@@ -134,7 +134,7 @@ class WUReprojector:
         self.logger.debug(f"Required {elapsed}[s] to transform WCS objects to EBD..")
 
         wu.org_img_meta["ebd_wcs"] = ebd_per_image_wcs
-        wu.heliocentric_distance = self.guess_dist
+        wu.barycentric_distance = self.guess_dist
         wu.org_img_meta["geocentric_distance"] = geocentric_dists
 
         # Reproject to a common WCS using the WCS for our patch
