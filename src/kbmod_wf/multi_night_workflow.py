@@ -66,6 +66,9 @@ def workflow_runner(env=None, runtime_config={}):
         if runtime_config is not None:
             logger.info(f"Using runtime configuration definition:\n{toml.dumps(runtime_config)}")
 
+        if "helio_guess_dists" not in runtime_config:
+            raise ValueError("No 'helio_guess_dists' were provided in the runtime config for reprojection.") 
+
         logger.info("Starting workflow")
 
         # gather all the *.collection files that are staged for processing
@@ -89,10 +92,7 @@ def workflow_runner(env=None, runtime_config={}):
                 collection_file = File(line.strip())
                 wu_filename = line + ".wu"
                 # Get the requested heliocentric guess distances (in AU) for reflex correction.
-                # If none are provided, default to 42.0 AU.
-                distances = (
-                    runtime_config["helio_guess_dists"] if "helio_guess_dists" in runtime_config else [42.0]
-                )
+                distances = runtime_config["helio_guess_dists"]
                 for dist in distances:
                     output_filename = wu_filename + f".{dist}.repro"
                     repro_wu_filenames.append(output_filename)
