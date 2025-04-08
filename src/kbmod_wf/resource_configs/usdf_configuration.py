@@ -34,7 +34,7 @@ def usdf_resource_config():
                     partition="milano",
                     account=account_name,
                     min_blocks=0,
-                    max_blocks=4,
+                    max_blocks=64,
                     init_blocks=0,
                     parallelism=1,
                     nodes_per_block=1,
@@ -54,7 +54,7 @@ def usdf_resource_config():
                     partition="ampere", # or ada?; note: milano has a 256 Gb cap
                     account=account_name,
                     min_blocks=0,
-                    max_blocks=2,
+                    max_blocks=12,
                     init_blocks=0,
                     parallelism=1,
                     nodes_per_block=1,
@@ -74,7 +74,7 @@ def usdf_resource_config():
                     partition="ampere", # or ada?; note: milano has a 256 Gb cap
                     account=account_name,
                     min_blocks=0,
-                    max_blocks=2,
+                    max_blocks=12,
                     init_blocks=0,
                     parallelism=1,
                     nodes_per_block=1,
@@ -94,7 +94,7 @@ def usdf_resource_config():
                     partition="ampere", # or ada
                     account=account_name,
                     min_blocks=0,
-                    max_blocks=2,
+                    max_blocks=8,
                     init_blocks=0,
                     parallelism=1,
                     nodes_per_block=1,
@@ -114,7 +114,7 @@ def usdf_resource_config():
                     partition="ampere",  # or ada; was turing, but we do not have access
                     account=account_name,
                     min_blocks=0,
-                    max_blocks=2,
+                    max_blocks=8,
                     init_blocks=0,
                     parallelism=1,
                     nodes_per_block=1,
