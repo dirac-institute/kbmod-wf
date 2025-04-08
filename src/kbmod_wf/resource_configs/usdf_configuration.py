@@ -12,7 +12,7 @@ walltimes = {
     "gpu_max": "08:00:00",
 }
 
-base_path = "/sdf/data/rubin/user/wbeebe/parsl/workflow_output"
+base_path = f"{os.environ['HOME']}/rubin-user/parsl/workflow_output"
 
 account_name = "rubin:commissioning"
 
@@ -39,7 +39,7 @@ def usdf_resource_config():
                     parallelism=1,
                     nodes_per_block=1,
                     cores_per_node=1,  # perhaps should be 8???
-                    mem_per_node=256,  # In GB
+                    mem_per_node=256,  # In GB; milano has a 256 Gb cap
                     exclusive=False,
                     walltime=walltimes["compute_bigmem"],
                     scheduler_options="#SBATCH --export=ALL",  # Add other options as needed
@@ -51,7 +51,7 @@ def usdf_resource_config():
                 label="large_mem",
                 max_workers=1,
                 provider=SlurmProvider(
-                    partition="milano",
+                    partition="ampere", # or ada?; note: milano has a 256 Gb cap
                     account=account_name,
                     min_blocks=0,
                     max_blocks=2,
@@ -71,7 +71,7 @@ def usdf_resource_config():
                 label="sharded_reproject",
                 max_workers=1,
                 provider=SlurmProvider(
-                    partition="milano",
+                    partition="ampere", # or ada?; note: milano has a 256 Gb cap
                     account=account_name,
                     min_blocks=0,
                     max_blocks=2,
@@ -91,7 +91,7 @@ def usdf_resource_config():
                 label="gpu",
                 max_workers=1,
                 provider=SlurmProvider(
-                    partition="ada",
+                    partition="ampere", # or ada
                     account=account_name,
                     min_blocks=0,
                     max_blocks=2,
@@ -111,7 +111,7 @@ def usdf_resource_config():
                 label="large_gpu",
                 max_workers=1,
                 provider=SlurmProvider(
-                    partition="turing",  # TODO verify this
+                    partition="ampere",  # or ada; was turing, but we do not have access
                     account=account_name,
                     min_blocks=0,
                     max_blocks=2,
