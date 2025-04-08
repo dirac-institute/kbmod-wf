@@ -72,7 +72,7 @@ class WUReprojector:
         self.logger = logger
         kbmod._logging.basicConfig(level=self.logger.level)
 
-        self.overwrite = self.runtime_config.get("overwrite", False)
+        self.overwrite = self.runtime_config.get("overwrite", True)
         self.search_config = self.runtime_config.get("search_config", None)
 
         # Default to 8 workers if not in the config. Value must be 0<num workers<65.
