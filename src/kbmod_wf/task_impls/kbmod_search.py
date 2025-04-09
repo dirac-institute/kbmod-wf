@@ -5,6 +5,9 @@ import numpy as np
 from logging import Logger
 import os
 
+from kbmod.analysis.plotting import plot_ic_image_bounds, plot_wcs_on_sky
+from kbmod.analysis.visualizer import Visualizer
+
 from kbmod.filters.known_object_filters import KnownObjsMatcher
 from kbmod.filters.stamp_filters import filter_stamps_by_cnn
 
@@ -102,7 +105,7 @@ class KBMODSearcher:
         else:
             self.logger.info(f"Filtering results by known objects using table at {skybot_table_path}")
             skytable = Table.read(skybot_table_path)
-                        self.logger.info(f"Read {skybot_table_path}. There are {len(skytable)} rows.")
+            self.logger.info(f"Read {skybot_table_path}. There are {len(skytable)} rows.")
             known_objs_matcher = KnownObjsMatcher(
                 skytable,
                 np.array(wu.get_all_obstimes()),
@@ -132,7 +135,7 @@ class KBMODSearcher:
             filter_stamps_by_cnn(
                 res,
                 ml_model_path,
-                coadd_type="mean",
+                coadd_type="weighted",
             )
             res.filter_rows(res["cnn_class"])
             self.logger.info(
@@ -142,4 +145,25 @@ class KBMODSearcher:
         self.logger.info(f"Writing results to output file: {self.result_filepath}")
         res.write_table(self.result_filepath)
 
+        self.logger.info(f"Writing daily_coadds to output file: {self.result_filepath}")
+        # Now add some convenience plots to the results.
+        # Plot the daily coadds for each result.
+        res.table["stamp"] = res.table[
+            "coadd_weighted"
+        ]  # We store the combined stamps in the results table.
+
+        viz = Visualizer(
+            wu.im_stack, res
+        )  # The image data are derived from the reprojected WorkUnit.
+        viz.generate_all_stamps(radius=config["stamp_radius"])
+        viz.count_num_days()  # This feature enables the daily image co-addition.
+
+        # For each result, in the results table, plot the daily coadds.
+        for res_idx in range(len(res)):
+            res_uuid = res[res_idx]["uuid"]
+            daily_coadds_filename = os.path.join(
+                self.results_directory, f"{res_uuid}_daily_coadds.png"
+            )
+            viz.plot_daily_coadds(res_idx, filename=daily_coadds_filename)
+    
         return self.result_filepath
