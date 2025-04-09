@@ -1,8 +1,14 @@
 import kbmod
 from kbmod.work_unit import WorkUnit
 
-import os
+import numpy as np
 from logging import Logger
+import os
+
+from kbmod.filters.known_object_filters import KnownObjsMatcher
+from kbmod.filters.stamp_filters import filter_stamps_by_cnn
+
+from astropy.table import Table
 
 
 def kbmod_search(
@@ -88,6 +94,50 @@ class KBMODSearcher:
         res = kbmod.run_search.SearchRunner().run_search_from_work_unit(wu)
         self.logger.info("Search complete")
         self.logger.info(f"Number of results found: {len(res)}")
+
+        # Match to known objects from the results
+        skybot_table_path = self.runtime_config.get("skybot_table_path", None)
+        if skybot_table_path is None:
+            self.logger.warning("No skybot table path provided, skipping filtering by known objects.")
+        else:
+            self.logger.info(f"Filtering results by known objects using table at {skybot_table_path}")
+            skytable = Table.read(skybot_table_path)
+                        self.logger.info(f"Read {skybot_table_path}. There are {len(skytable)} rows.")
+            known_objs_matcher = KnownObjsMatcher(
+                skytable,
+                np.array(wu.get_all_obstimes()),
+                matcher_name="known_matcher",
+                sep_thresh=5.0,  # Observations must be within 5 arcsecs.
+                time_thresh_s=30,  # Observations must match within 30 seconds.
+                name_col="Name",
+                ra_col=f"ra_{wu.barycentric_distance}",
+                dec_col=f"dec_{wu.barycentric_distance}",
+                mjd_col="mjd_mid",
+            )
+
+            # Carry out initial matching to known objects and populate the matches column.
+            known_objs_matcher.match(res, wu.wcs)
+
+            # Filter the matches down to results with at least 10 observations.
+            min_obs = 5
+            known_objs_matcher.match_on_min_obs(res, min_obs)
+
+        # Filter results by CNN
+        ml_model_path = self.runtime_config.get("ml_model_path", None)
+        if ml_model_path is None:
+            self.logger.warning("No ML model path provided, skipping filtering by CNN.")
+        else:
+            self.logger.info(f"Filtering results by CNN using model at {ml_model_path}")
+            orig_res_len = len(res)
+            filter_stamps_by_cnn(
+                res,
+                ml_model_path,
+                coadd_type="mean",
+            )
+            res.filter_rows(res["cnn_class"])
+            self.logger.info(
+                f"Filtered {orig_res_len - len(res)} results using CNN model at {ml_model_path}"
+            )
 
         self.logger.info(f"Writing results to output file: {self.result_filepath}")
         res.write_table(self.result_filepath)
