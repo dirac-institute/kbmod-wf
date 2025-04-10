@@ -84,15 +84,15 @@ def workflow_runner(env=None, runtime_config={}):
         reproject_futures = []
         repro_wu_filenames = []
         runtime_config = app_configs.get("reproject_wu", {})
+        if "helio_guess_dists" not in runtime_config:
+            raise ValueError("No 'helio_guess_dists' were provided in the runtime config for reprojection.")
+
         with open(create_manifest_future.result(), "r") as f:
             for line in f:
                 collection_file = File(line.strip())
                 wu_filename = line + ".wu"
                 # Get the requested heliocentric guess distances (in AU) for reflex correction.
-                # If none are provided, default to 42.0 AU.
-                distances = (
-                    runtime_config["helio_guess_dists"] if "helio_guess_dists" in runtime_config else [42.0]
-                )
+                distances = runtime_config["helio_guess_dists"]
                 for dist in distances:
                     output_filename = wu_filename + f".{dist}.repro"
                     repro_wu_filenames.append(output_filename)
@@ -118,7 +118,13 @@ def workflow_runner(env=None, runtime_config={}):
                 )
             )
 
-        [f.result() for f in search_futures]
+        for f in search_futures:
+            # Apply a blocking call to ensure that the workflow does not exit before all futures are completed.
+            # We use a try-catch so that any single future cannot crash the parent process.
+            try:
+                f.result()
+            except Exception as e:
+                logger.error(f"Error occurred while processing a future: {e}")
 
         logger.info("Workflow complete")
 
