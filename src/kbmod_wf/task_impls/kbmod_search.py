@@ -51,6 +51,7 @@ class KBMODSearcher:
         self.logger = logger
 
         self.search_config_filepath = self.runtime_config.get("search_config_filepath", None)
+        self.cleanup_wu = self.runtime_config.get("cleanup_wu", False)
         self.results_directory = os.path.dirname(self.result_filepath)
 
     def run_search(self):
@@ -91,5 +92,22 @@ class KBMODSearcher:
 
         self.logger.info(f"Writing results to output file: {self.result_filepath}")
         res.write_table(self.result_filepath)
+
+        self.logger.info("Results written to file")
+        if self.cleanup_wu:
+            self.logger.info(f"Cleaning up sharded WorkUnit {self.input_wu_filepath} with {len(wu)}")
+            # Delete the head WorkUnit file at self.input_wu_filepath
+            try:
+                os.remove(self.input_wu_filepath)
+            except Exception as e:
+                self.logger.warning(f"Failed to remove {self.input_wu_filepath}: {e}")
+            # Delete the shards for this WorkUnit
+            for i in range(len(wu)):
+                shard_path = os.path.join(directory_containing_shards, f"{i}_{wu_filename}")
+                try:
+                    os.remove(shard_path)
+                except Exception as e:
+                    self.logger.warning(f"Failed to remove WorkUnit shard {shard_path}: {e}")
+            self.logger.info(f"Successfully removed WorkUnit {self.input_wu_filepath}")
 
         return self.result_filepath
