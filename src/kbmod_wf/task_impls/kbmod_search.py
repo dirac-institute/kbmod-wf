@@ -92,16 +92,17 @@ class KBMODSearcher:
 
         self.logger.info(f"Writing results to output file: {self.result_filepath}")
         res.write_table(self.result_filepath)
-
         self.logger.info("Results written to file")
+    
         if self.cleanup_wu:
             self.logger.info(f"Cleaning up sharded WorkUnit {self.input_wu_filepath} with {len(wu)}")
-            # Delete the head WorkUnit file at self.input_wu_filepath
+            # Delete the head filefor the WorkUnit
             try:
                 os.remove(self.input_wu_filepath)
             except Exception as e:
                 self.logger.warning(f"Failed to remove {self.input_wu_filepath}: {e}")
-            # Delete the shards for this WorkUnit
+
+            # Delete the individual shards for this WorkUnit, one existing for each image.
             for i in range(len(wu)):
                 shard_path = os.path.join(directory_containing_shards, f"{i}_{wu_filename}")
                 try:
