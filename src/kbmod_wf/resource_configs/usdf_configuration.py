@@ -22,9 +22,9 @@ def usdf_resource_config():
         app_cache=True,
         checkpoint_mode="task_exit",
         checkpoint_files=get_all_checkpoints(
-            os.path.join(base_path, "kbmod/workflow/run_logs", datetime.date.today().isoformat())
+            os.path.join(base_path, "kbmod/workflow/run_logs")
         ),
-        run_dir=os.path.join(base_path, "kbmod/workflow/run_logs", datetime.date.today().isoformat()),
+        run_dir=os.path.join(base_path, "kbmod/workflow/run_logs"),
         retries=1,
         executors=[
             HighThroughputExecutor(
