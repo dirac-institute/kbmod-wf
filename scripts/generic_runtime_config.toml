@@ -1,0 +1,69 @@
+# All values set here will be applied to the resource configuration prior to 
+# calling parsl.load(config). Even if the key does't exist in the resource
+# config, it will be added with the value defined here.
+#
+# Values in the apps.XXX section will be passed as a dictionary to the corresponding
+# app. e.g. apps.create_uri_manifest will be passed to the create_uri_manifest app.
+
+
+[resource_config_modifiers]
+checkpoint_mode = 'task_exit'
+
+
+
+[apps.create_manifest]
+# The path to the staging directory, which contains the .collection files
+#staging_directory = "/sdf/home/c/colinc/rubin-user/parsl/staging/39.0_20X20_shards"
+
+staging_directory = "____basedir____"
+output_directory = "____basedir____/output"
+file_pattern = "*.collection"
+
+#helio_guess_dists = [39.0]
+helio_guess_dists = [____reflexdist____]
+
+
+
+[apps.ic_to_wu]
+# The path to the KBMOD search config file
+# e.g. "/gscratch/dirac/kbmod/workflow/kbmod_search_config.yaml"
+search_config_filepath = "____basedir____/search_config.yaml"
+
+# The path to the butler config file that instantiate a butler to retrieve images
+#butler_config_filepath = "/repo/main"
+butler_config_filepath = "____butlerpath____"
+
+# Remove a previously created WU file if it exists
+overwrite = false
+
+helio_guess_dists = [____reflexdist____]
+
+
+
+[apps.reproject_wu]
+# butler_config_filepath = "/repo/main"
+butler_config_filepath = "____butlerpath____"
+
+search_config_filepath = "____basedir____/search_config.yaml"
+
+# Number of processors to use for parallelizing the reprojection
+# n_workers = 32
+n_workers = ____nworkers____
+
+# The name of the observation site to use for reflex correction
+# observation_site = "Rubin"
+observation_site = "____sitename____"
+
+helio_guess_dists = [____reflexdist____]
+
+
+
+[apps.kbmod_search]
+# The path to the KBMOD search config yaml file
+search_config_filepath = "____basedir____/search_config.yaml"
+
+helio_guess_dists = [____reflexdist____]
+
+# remove sharded WorkUnit files when done 4/11/2025 COC/WSB
+#cleanup_wu = true
+cleanup_wu = ____cleanupwu____
