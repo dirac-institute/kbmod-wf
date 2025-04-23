@@ -1,0 +1,59 @@
+center_thresh: 0.0
+chunk_size: 1000000
+clip_negative: false
+cluster_eps: 120.0
+cluster_type: nn_start_end
+cluster_v_scale: 1.0
+coadds: []
+debug: true
+do_clustering: true
+do_mask: true
+do_stamp_filter: false
+encode_num_bytes: -1
+generator_config:
+  angle_units: degree
+  angles:
+  - 90
+  - -90
+  - 64
+  given_ecliptic: null
+  name: EclipticCenteredSearch
+  velocities:
+  - 25.0
+  - 225.0
+  - 64
+  velocity_units: pix / d
+im_filepath: null
+legacy_filename: null
+lh_level: 5.0
+max_lh: 10000.0
+mom_lims:
+- 35.5
+- 35.5
+- 2.0
+- 0.3
+- 0.3
+num_obs: 7
+peak_offset:
+- 2.0
+- 2.0
+psf_val: 1.4
+res_filepath: /sdf/home/c/colinc/rubin-user/20X20_patch250060
+result_filename: /sdf/home/c/colinc/rubin-user/20X20_patch250060/full_results.ecsv
+results_per_pixel: 4
+save_all_stamps: False
+sigmaG_lims:
+- 25
+- 75
+stamp_radius: 50
+coadds:
+- sum
+- mean
+- median
+- weighted
+stamp_type: sum
+track_filtered: false
+x_pixel_bounds: null
+x_pixel_buffer: null
+y_pixel_bounds: null
+y_pixel_buffer: null
