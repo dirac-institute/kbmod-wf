@@ -26,9 +26,11 @@ def get_resource_config(env: Literal["dev", "klone", "usdf"] | None = None):
     ValueError
         If an unknown environment is provided, raise a ValueError.
     """
-
+    print(f"env was {env}")
     if env is None:
-        if platform.system().lower() == "darwin":
+        if platform.node().startswith("sdf"):
+            config = usdf_resource_config()
+        elif platform.system().lower() == "darwin":
             config = dev_resource_config()
         elif is_running_on_wsl():
             config = dev_resource_config()
