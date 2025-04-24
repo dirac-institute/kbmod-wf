@@ -28,7 +28,7 @@ max_ram_dict = {"ada":70, # 351 Gb total, with 5 GPUs total on the one node, lea
 }
 max_block_dict = {"ada":5, "ampere":8}
 gpu_partition = "ampere"
-cpu_partition = "roma"
+cpu_partition = "milano"
 
 if "GPUNODE" in os.environ:
 	gpu_partition = os.environ["GPUNODE"].lower()
@@ -60,6 +60,7 @@ def usdf_resource_config():
             HighThroughputExecutor(
                 label="small_cpu",
                 # max_workers=1,
+		max_workers_per_node=1,
                 provider=SlurmProvider(
                     partition=cpu_partition,
                     account=account_name,
@@ -80,6 +81,7 @@ def usdf_resource_config():
             HighThroughputExecutor(
                 label="large_mem",
                 # max_workers=1,
+		max_workers_per_node=1,
                 provider=SlurmProvider(
                     partition="roma", # or ada?; note: milano, roma have a ~480 Gb cap 4/16/2025 COC
                     account=account_name,
@@ -100,6 +102,7 @@ def usdf_resource_config():
             HighThroughputExecutor(
                 label="sharded_reproject",
                 # max_workers=1,
+		max_workers_per_node=1,
                 provider=SlurmProvider(
                     partition=cpu_partition, # or ada?; see resource notes at top
                     account=account_name,
@@ -120,6 +123,7 @@ def usdf_resource_config():
             HighThroughputExecutor(
                 label="gpu",
                 # max_workers=1,
+		max_workers_per_node=1,
                 provider=SlurmProvider(
                     partition=gpu_partition, # or ada
                     account=account_name,
@@ -140,6 +144,7 @@ def usdf_resource_config():
             HighThroughputExecutor(
                 label="large_gpu",
                 # max_workers=1,
+		max_workers_per_node=1,
                 provider=SlurmProvider(
                     partition=gpu_partition,  # or ada; was turing, but we do not have access
                     account=account_name,
