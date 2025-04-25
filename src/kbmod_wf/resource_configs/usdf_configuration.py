@@ -4,17 +4,29 @@
 # Ampere - A100 - 40 Gb GPU - ~896 Gb max RAM
 # Ada - L40S - 46 Gb GPU - ~512 Gb max RAM
 
+#
+# removed max_workers from executors 4/23/2025 COC
+#
+
 import os
 import datetime
 from parsl import Config
 from parsl.executors import HighThroughputExecutor
 from parsl.providers import LocalProvider, SlurmProvider
 from parsl.utils import get_all_checkpoints
+from parsl.monitoring.monitoring import MonitoringHub # COC
+from parsl.addresses import address_by_hostname # COC
+import logging # COC
+
 import platform
 
 nodename_map = {"sdfada":"ada", "sdfampere":"ampere", "sdfroma":"roma", "sdfmilano":"milano"}
-max_ram_dict = {"ada":350, "ampere":896, "roma":480, "milano":480}
-
+max_ram_dict = {"ada":70, # 351 Gb total, with 5 GPUs total on the one node, leaves 70 Gb per task
+		"ampere":220, # 896 per each of the two nodes we can access, each with 4 GPUs
+		"roma":480,
+		"milano":480
+}
+max_block_dict = {"ada":5, "ampere":8}
 gpu_partition = "ampere"
 cpu_partition = "milano"
 
@@ -47,7 +59,8 @@ def usdf_resource_config():
         executors=[
             HighThroughputExecutor(
                 label="small_cpu",
-                max_workers=1,
+                # max_workers=1,
+		max_workers_per_node=1,
                 provider=SlurmProvider(
                     partition=cpu_partition,
                     account=account_name,
@@ -67,7 +80,8 @@ def usdf_resource_config():
             ),
             HighThroughputExecutor(
                 label="large_mem",
-                max_workers=1,
+                # max_workers=1,
+		max_workers_per_node=1,
                 provider=SlurmProvider(
                     partition="roma", # or ada?; note: milano, roma have a ~480 Gb cap 4/16/2025 COC
                     account=account_name,
@@ -87,7 +101,8 @@ def usdf_resource_config():
             ),
             HighThroughputExecutor(
                 label="sharded_reproject",
-                max_workers=1,
+                # max_workers=1,
+		max_workers_per_node=1,
                 provider=SlurmProvider(
                     partition=cpu_partition, # or ada?; see resource notes at top
                     account=account_name,
@@ -102,46 +117,48 @@ def usdf_resource_config():
                     walltime=walltimes["sharded_reproject"],
                     scheduler_options="#SBATCH --export=ALL",  # Add other options as needed
                     # Command to run before starting worker - i.e. conda activate <special_env>
-                    worker_init="",
+                    worker_init="env | grep SLURM",
                 ),
             ),
             HighThroughputExecutor(
                 label="gpu",
-                max_workers=1,
+                # max_workers=1,
+		max_workers_per_node=1,
                 provider=SlurmProvider(
                     partition=gpu_partition, # or ada
                     account=account_name,
                     min_blocks=0,
-                    max_blocks=8, # 8 to 24 4/16/2025 COC to 12 4/20/2025 COC to 8 4/22/2025 COC
+                    max_blocks=max_block_dict[gpu_partition], # 8 to 24 4/16/2025 COC to 12 4/20/2025 COC to 8 4/22/2025 COC
                     init_blocks=0,
                     parallelism=1,
                     nodes_per_block=1,
-                    cores_per_node=2,  # perhaps should be 8???
+                    cores_per_node=4,  # perhaps should be 8???
                     mem_per_node=max_ram_dict[gpu_partition],  # In GB; 512 OOMs with 20X20s 4/16/2025 COC
                     exclusive=False,
                     walltime=walltimes["gpu_max"],
                     # Command to run before starting worker - i.e. conda activate <special_env>
-                    worker_init="hostname;hostnamectl;nvidia-smi",
+                    worker_init="hostname;hostnamectl;nvidia-smi;env | grep SLURM",
                     scheduler_options="#SBATCH --gpus=1\n#SBATCH --export=ALL",
                 ),
             ),
             HighThroughputExecutor(
                 label="large_gpu",
-                max_workers=1,
+                # max_workers=1,
+		max_workers_per_node=1,
                 provider=SlurmProvider(
                     partition=gpu_partition,  # or ada; was turing, but we do not have access
                     account=account_name,
                     min_blocks=0,
-                    max_blocks=8, # 8 to 24 4/16/2025 COC to 12 4/20/2025 to 8 4/25/2025 COC
+                    max_blocks=max_block_dict[gpu_partition], # 8 to 24 4/16/2025 COC to 12 4/20/2025 to 8 4/25/2025 COC
                     init_blocks=0,
                     parallelism=1,
                     nodes_per_block=1,
-                    cores_per_node=2,  # perhaps should be 8???
+                    cores_per_node=4,  # perhaps should be 8???
                     mem_per_node=max_ram_dict[gpu_partition],  # In GB; 512G OOM with 20X20 4/16/2025 COC
                     exclusive=False,
                     walltime=walltimes["gpu_max"],
                     # Command to run before starting worker - i.e. conda activate <special_env>
-                    worker_init="hostname;hostnamectl;nvidia-smi",
+                    worker_init="hostname;hostnamectl;nvidia-smi;env | grep SLURM",
                     scheduler_options="#SBATCH --gpus=1\n#SBATCH --export=ALL",
                 ),
             ),
@@ -153,4 +170,10 @@ def usdf_resource_config():
                 ),
             ),
         ],
+	monitoring=MonitoringHub(
+       		hub_address=address_by_hostname(),
+       		hub_port=55055,
+       		monitoring_debug=True,
+       		resource_monitoring_interval=10,
+   	),
     )
