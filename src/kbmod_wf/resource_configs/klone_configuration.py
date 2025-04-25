@@ -25,7 +25,7 @@ def klone_resource_config():
         executors=[
             HighThroughputExecutor(
                 label="small_cpu",
-                max_workers=1,
+                max_workers_per_node=1,
                 provider=SlurmProvider(
                     partition="ckpt-g2",
                     account="astro",
@@ -44,7 +44,7 @@ def klone_resource_config():
             ),
             HighThroughputExecutor(
                 label="large_mem",
-                max_workers=1,
+                max_workers_per_node=1,
                 provider=SlurmProvider(
                     partition="ckpt-g2",
                     account="astro",
@@ -63,7 +63,7 @@ def klone_resource_config():
             ),
             HighThroughputExecutor(
                 label="sharded_reproject",
-                max_workers=1,
+                max_workers_per_node=1,
                 provider=SlurmProvider(
                     partition="ckpt-g2",
                     account="astro",
@@ -82,7 +82,7 @@ def klone_resource_config():
             ),
             HighThroughputExecutor(
                 label="gpu",
-                max_workers=1,
+                max_workers_per_node=1,
                 provider=SlurmProvider(
                     partition="ckpt-g2",
                     account="escience",

@@ -1,6 +1,9 @@
 # 4/21/2025 COC
 
 import os
+import inspect 
+import os 
+script_directory = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 
 def make_toml_file(basedir, generic_toml_path, site_name="Rubin", disable_cleanup=False, nworkers=32, repo_path="/repo/main", reflex_distances=None):
     #
@@ -91,9 +94,9 @@ if __name__ == '__main__':
     parser.add_argument('--disable-cleanup', dest='disable_cleanup', help='disable deletion of reprojected WorkUnits after successful run. Default: False', type=bool, default=False)
     parser.add_argument('--nworkers', dest='nworkers', help='number of workers (cores) to assume. Default: 32', type=int, default=32)
     parser.add_argument('--repo-path', dest='repo_path', help='Butler repository path. Default: /repo/main', type=str, default="/repo/main")
-    parser.add_argument('--generic-toml-path', dest='generic_toml_path', help='Path to a special generic TOML file. Default: ~/generic_runtime_config.toml', type=str, default=f"{os.environ['HOME']}/generic_runtime_config.toml")
-    parser.add_argument('--generic-sbatch-path', dest='generic_sbatch_path', help='Path to a special generic sbatch file. Default: ~/generic_parent_parsl_sbatch.sh', type=str, default=f"{os.environ['HOME']}/generic_parent_parsl_sbatch.sh")
-    parser.add_argument('--generic-yaml-path', dest='generic_yaml_path', help='Path to a special generic kbmod search config yaml file. Default: ~/generic_search_config.yaml', type=str, default=f"{os.environ['HOME']}/generic_search_config.yaml")
+    parser.add_argument('--generic-toml-path', dest='generic_toml_path', help='Path to a special generic TOML file. Default: ~/generic_runtime_config.toml', type=str, default=f"{script_directory}/generic_runtime_config.toml")
+    parser.add_argument('--generic-sbatch-path', dest='generic_sbatch_path', help='Path to a special generic sbatch file. Default: ~/generic_parent_parsl_sbatch.sh', type=str, default=f"{script_directory}/generic_parent_parsl_sbatch.sh")
+    parser.add_argument('--generic-yaml-path', dest='generic_yaml_path', help='Path to a special generic kbmod search config yaml file. Default: ~/generic_search_config.yaml', type=str, default=f"{script_directory}/generic_search_config.yaml")
     
     #
     args = parser.parse_args()
