@@ -8,8 +8,8 @@ from parsl.utils import get_all_checkpoints
 walltimes = {
     "compute_bigmem": "01:00:00",
     "large_mem": "04:00:00",
-    "sharded_reproject": "04:00:00",
-    "gpu_max": "08:00:00",
+    "sharded_reproject": "01:00:00",
+    "gpu_max": "01:00:00",
 }
 
 
@@ -21,7 +21,7 @@ def klone_resource_config():
             os.path.join("/gscratch/dirac/kbmod/workflow/run_logs", datetime.date.today().isoformat())
         ),
         run_dir=os.path.join("/gscratch/dirac/kbmod/workflow/run_logs", datetime.date.today().isoformat()),
-        retries=1,
+        retries=100,
         executors=[
             HighThroughputExecutor(
                 label="small_cpu",
@@ -30,12 +30,12 @@ def klone_resource_config():
                     partition="ckpt-g2",
                     account="astro",
                     min_blocks=0,
-                    max_blocks=4,
+                    max_blocks=16,
                     init_blocks=0,
                     parallelism=1,
                     nodes_per_block=1,
                     cores_per_node=1,  # perhaps should be 8???
-                    mem_per_node=256,  # In GB
+                    mem_per_node=32,  # In GB
                     exclusive=False,
                     walltime=walltimes["compute_bigmem"],
                     # Command to run before starting worker - i.e. conda activate <special_env>
@@ -43,6 +43,7 @@ def klone_resource_config():
                 ),
             ),
             HighThroughputExecutor(
+                # This executor was used for the pre-TNO reprojection task
                 label="large_mem",
                 max_workers_per_node=1,
                 provider=SlurmProvider(
@@ -62,18 +63,19 @@ def klone_resource_config():
                 ),
             ),
             HighThroughputExecutor(
+                # This executor is used for reprojecting sharded WorkUnits
                 label="sharded_reproject",
                 max_workers_per_node=1,
                 provider=SlurmProvider(
                     partition="ckpt-g2",
                     account="astro",
                     min_blocks=0,
-                    max_blocks=2,
+                    max_blocks=16,
                     init_blocks=0,
                     parallelism=1,
                     nodes_per_block=1,
-                    cores_per_node=32,
-                    mem_per_node=128,  # ~2-4 GB per core
+                    cores_per_node=8,
+                    mem_per_node=32,  # ~2-4 GB per core
                     exclusive=False,
                     walltime=walltimes["sharded_reproject"],
                     # Command to run before starting worker - i.e. conda activate <special_env>
@@ -87,12 +89,12 @@ def klone_resource_config():
                     partition="ckpt-g2",
                     account="escience",
                     min_blocks=0,
-                    max_blocks=2,
+                    max_blocks=10,
                     init_blocks=0,
                     parallelism=1,
                     nodes_per_block=1,
-                    cores_per_node=2,  # perhaps should be 8???
-                    mem_per_node=512,  # In GB
+                    cores_per_node=1,
+                    mem_per_node=64,  # In GB
                     exclusive=False,
                     walltime=walltimes["gpu_max"],
                     # Command to run before starting worker - i.e. conda activate <special_env>
