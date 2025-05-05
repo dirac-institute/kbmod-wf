@@ -17,31 +17,31 @@ LOGGING_CONFIG = {
     },
     "handlers": {
         "stdout": {
-            "level": "INFO",
+            "level": "DEBUG",
             "formatter": "standard",
             "class": "logging.StreamHandler",
             "stream": "ext://sys.stdout",
         },
         "stderr": {
-            "level": "INFO",
+            "level": "DEBUG",
             "formatter": "standard",
             "class": "logging.StreamHandler",
             "stream": "ext://sys.stderr",
         },
         "file": {
-            "level": "INFO",
+            "level": "DEBUG",
             "formatter": "standard",
             "class": "logging.FileHandler",
             "filename": "parsl.log",
         },
     },
     "loggers": {
-        "task": {"level": "INFO", "handlers": ["file", "stdout"], "propagate": False},
+        "task": {"level": "DEBUG", "handlers": ["file", "stdout"], "propagate": False},
         "task.create_manifest": {},
         "task.ic_to_wu": {},
         "task.reproject_wu": {},
         "task.kbmod_search": {},
-        "kbmod": {"level": "INFO", "handlers": ["file", "stdout"], "propagate": False},
+        "kbmod": {"level": "DEBUG", "handlers": ["file", "stdout"], "propagate": False},
     },
 }
 """Default logging configuration for Parsl."""

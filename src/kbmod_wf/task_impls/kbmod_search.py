@@ -27,6 +27,9 @@ def kbmod_search(
     str
         The fully resolved filepath of the results file.
     """
+    worker_rank = os.environ["PARSL_WORKER_RANK"]
+    os.environ["CUDA_VISIBLE_DEVICES"] = worker_rank
+    print(f"Set worker_rank to {worker_rank}")
     kbmod_searcher = KBMODSearcher(
         wu_filepath=wu_filepath,
         result_filepath=result_filepath,
