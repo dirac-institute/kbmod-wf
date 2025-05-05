@@ -10,6 +10,7 @@ do_clustering: true
 do_mask: true
 do_stamp_filter: false
 encode_num_bytes: -1
+gpu_filter: true
 generator_config:
   angle_units: degree
   angles:
