@@ -57,6 +57,10 @@ class KBMODSearcher:
         self.cleanup_wu = self.runtime_config.get("cleanup_wu", False)
         self.results_directory = os.path.dirname(self.result_filepath)
 
+        # Whether or not to randomize timestamp ordering to create bad searches
+        # Useful for testing and ML training purposes.
+        self.disordered_search = self.runtime_config.get("disordered_search", False)
+
     def run_search(self):
         # Check that KBMOD has access to a GPU before starting the search.
         if not kbmod.search.HAS_GPU:
@@ -77,6 +81,9 @@ class KBMODSearcher:
 
         config = wu.config
 
+        if self.disordered_search:
+            wu.disorder_obstimes()
+
         # Modify the work unit results to be what is specified in command line args
         base_filename, _ = os.path.splitext(os.path.basename(self.result_filepath))
         input_parameters = {
@@ -96,7 +103,7 @@ class KBMODSearcher:
         self.logger.info(f"Writing results to output file: {self.result_filepath}")
         res.write_table(self.result_filepath)
         self.logger.info("Results written to file")
-    
+
         if self.cleanup_wu:
             self.logger.info(f"Cleaning up sharded WorkUnit {self.input_wu_filepath} with {len(wu)}")
             # Delete the head filefor the WorkUnit
