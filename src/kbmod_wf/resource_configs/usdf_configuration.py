@@ -26,7 +26,7 @@ slurm_cmd_timeout = 60 # default is 10 and that is timing out for sacct -X 5/1/2
 
 max_ram_dict = {"ada":350, # 351 Gb total, with 5 GPUs total on the one node, leaves 70 Gb per task
 		"ampere":952, # 896 per each of the two nodes we can access, each with 4 GPUs
-		"roma":140, # 240 to 140
+		"roma":140, # 240 to 140; to 240 5/20/2025 COC; RAM fixes, back to 140 5/23/2025 COC
 		"milano":140 # 240 to 140
 }
 max_block_dict = {"ada":1, "ampere":2}
@@ -75,7 +75,7 @@ def usdf_resource_config():
                     partition=cpu_partition, # or ada?; see resource notes at top
                     account=account_name,
                     min_blocks=0,
-                    max_blocks=20, # 12 to 20 4/16/2025 COC
+                    max_blocks=10, # 12 to 20 4/16/2025 COC; 20 to 10 while debugging RAM issues 5/20/2025 COC
                     init_blocks=0,
                     parallelism=1,
                     nodes_per_block=1,
