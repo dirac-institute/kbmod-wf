@@ -97,7 +97,7 @@ def workflow_runner(env=None, runtime_config={}):
             search_futures.append(
                 kbmod_search(
                     inputs=[f.result()],
-                    outputs=[File(f.result().filepath + ".search.ecsv")],
+                    outputs=[File(f.result().filepath + ".search.parquet")],
                     runtime_config=app_configs.get("kbmod_search", {}),
                     logging_file=logging_file,
                 )
