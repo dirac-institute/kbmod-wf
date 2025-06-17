@@ -36,7 +36,7 @@ def kbmod_search(inputs=(), outputs=(), runtime_config={}, logging_file=None):
     with ErrorLogger(logger):
         kbmod_search(
             wu_filepath=inputs[0].filepath,
-            result_filepath=inputs[0].filepath + ".search.ecsv",
+            result_filepath=inputs[0].filepath + ".search.parquet",
             runtime_config=runtime_config,
             logger=logger,
         )
