@@ -1,4 +1,5 @@
 import kbmod
+from kbmod.search import kb_has_gpu
 from kbmod.work_unit import WorkUnit
 
 import os
@@ -63,7 +64,7 @@ class KBMODSearcher:
 
     def run_search(self):
         # Check that KBMOD has access to a GPU before starting the search.
-        if not kbmod.search.HAS_GPU:
+        if not kb_has_gpu():
             raise RuntimeError("Code compiled without GPU support.")
         else:
             self.logger.info("Confirmed GPU avaliable.")
