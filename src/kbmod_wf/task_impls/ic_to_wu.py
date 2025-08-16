@@ -91,4 +91,10 @@ class ICtoWUConverter:
         elapsed = round(time.time() - last_time, 1)
         self.logger.debug(f"Required {elapsed}[s] to write WorkUnit to disk: {self.wu_filepath}")
 
-        return self.wu_filepath
+        # All of the WCS information is maintained in the header of the ImageCollection
+        # as a Astropy table Column. Here we unwrap the column to create a list of strings
+        # Each string can then be converted into a WCS object when needed (for reprojection)
+        # using: `wcs_objects = [WCS(json.loads(i)) for i in wcses]`
+        wcses = [i for i in ic.data['wcs']]
+
+        return self.wu_filepath, wcses

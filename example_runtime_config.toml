@@ -11,8 +11,8 @@ checkpoint_mode = 'task_exit'
 [apps.create_manifest]
 # The path to the staging directory
 # e.g. "/gscratch/dirac/kbmod/workflow/staging"
-staging_directory = "/home/drew/code/kbmod-wf/dev_staging"
-output_directory = "/home/drew/code/kbmod-wf/dev_staging/single_chip_workflow"
+staging_directory = "/Users/drew/code/kbmod-wf/dev_staging"
+output_directory = "/Users/drew/code/kbmod-wf/dev_staging/processing"
 file_pattern = "*.collection"
 
 
