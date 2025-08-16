@@ -4,6 +4,7 @@ import os
 import toml
 import parsl
 from parsl import python_app, File
+from parsl.monitoring.errors import MonitoringHubStartError
 import parsl.executors
 
 from kbmod_wf.utilities import (
@@ -153,5 +154,11 @@ if __name__ == "__main__":
     if args.runtime_config is not None and os.path.exists(args.runtime_config):
         with open(args.runtime_config, "r") as toml_runtime_config:
             runtime_config = toml.load(toml_runtime_config)
+    max_tries = 5
+    for i in range(max_tries):
+        try:
+            workflow_runner(env=args.env, runtime_config=runtime_config)
+            break
+        except MonitoringHubStartError as msg:
+            print(f"Got MonitoringHubStartError during attempt {i} of {max_tries}. Will try again...")
 
-    workflow_runner(env=args.env, runtime_config=runtime_config)
