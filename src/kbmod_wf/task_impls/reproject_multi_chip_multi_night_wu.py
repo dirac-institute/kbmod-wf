@@ -107,7 +107,7 @@ class WUReprojector:
             self.guess_dist,  # heliocentric guess distance in AU
             Time(wu.get_all_obstimes(), format="mjd"),
             self.point_on_earth,
-            npoints=10,
+            npoints=100,
             seed=None,
         )
         elapsed = round(time.time() - last_time, 1)
