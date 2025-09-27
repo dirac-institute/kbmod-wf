@@ -5,6 +5,12 @@ from kbmod.work_unit import WorkUnit
 import os
 from logging import Logger
 
+# Import functions for ephemeris matching
+from astropy.table import Table
+import pandas as pd
+from kbmod.filters.known_object_filters import KnownObjsMatcher
+from kbmod_cmdline.kbmod_result_matcher import reflex_correct_ephem_table
+
 
 def kbmod_search(
     wu_filepath: str = None,
@@ -62,6 +68,94 @@ class KBMODSearcher:
         # Useful for testing and ML training purposes.
         self.disordered_search = self.runtime_config.get("disordered_search", False)
 
+        # Ephemeris matching configuration
+        self.ephem_filepath = self.runtime_config.get("ephem_filepath", None)
+        self.obs_site = self.runtime_config.get("obs_site", "Rubin")
+        self.sep_thresh = self.runtime_config.get("sep_thresh", 5.0)
+        self.time_thresh_s = self.runtime_config.get("time_thresh_s", 30.0)
+        self.min_obs = self.runtime_config.get("min_obs", 1)
+
+    def match_results_to_ephemeris(self, res, wcs, barycentric_dist):
+        """Match KBMOD results to known objects in ephemeris.
+
+        Parameters
+        ----------
+        res : kbmod.Results
+            The KBMOD search results to match against ephemeris.
+        wcs : astropy.wcs.WCS
+            The WCS object associated with the results for coordinate transformations.
+        barycentric_dist: float
+            The barycentric distance in AU that was applied to the WorkUnit.
+
+        Returns
+        -------
+        kbmod.Results
+            The results with ephemeris matching information added.
+        """
+        if self.ephem_filepath is None:
+            self.logger.info("No ephemeris file specified, skipping ephemeris matching")
+            return res
+
+        if not os.path.exists(self.ephem_filepath):
+            self.logger.warning(
+                f"Ephemeris file not found: {self.ephem_filepath}, skipping ephemeris matching"
+            )
+            return res
+
+        self.logger.info(f"Loading ephemeris from: {self.ephem_filepath}")
+
+        # Load ephemeris table
+        if self.ephem_filepath.endswith(".ecsv"):
+            ephem_table = Table.read(self.ephem_filepath, format="ascii.ecsv")
+        elif self.ephem_filepath.endswith(".csv"):
+            ephem_table = Table.read(self.ephem_filepath)
+        elif self.ephem_filepath.endswith(".parquet"):
+            # load as a pandas dataframe to better handle type inference.
+            ephem_table = Table.from_pandas(pd.read_parquet(self.ephem_filepath))
+        else:
+            self.logger.warning(
+                f"Unsupported ephemeris file format: {self.ephem_filepath}, skipping ephemeris matching"
+            )
+            return res
+
+        # Apply reflex correction if needed
+        if (
+            f"ra_{barycentric_dist}" not in ephem_table.columns
+            or f"dec_{barycentric_dist}" not in ephem_table.columns
+        ):
+            self.logger.info("Ephemeris table did not have reflex-corrected values")
+            ephem_table = reflex_correct_ephem_table(ephem_table, barycentric_dist, self.obs_site)
+
+        # Create known objects matcher
+        known_objs_matcher = KnownObjsMatcher(
+            ephem_table,
+            res.mjd_mid,
+            matcher_name="known_matcher",
+            sep_thresh=self.match_sep_thresh,
+            time_thresh_s=self.match_time_thresh_s,
+            name_col="Name",
+            ra_col=f"ra_{barycentric_dist}",
+            dec_col=f"dec_{barycentric_dist}",
+            mjd_col="mjd_mid",
+        )
+
+        # Carry out initial matching to known objects
+        self.logger.info("Matching results to known objects")
+        res = known_objs_matcher.match(res, wcs)
+
+        # Filter matches down to results with at least min_obs observations
+        res = known_objs_matcher.match_on_min_obs(res, self.min_obs)
+
+        # Count matches for logging
+        match_count = 0
+        for row in res:
+            if row["known_matcher"] is not None:
+                match_count += len(row["known_matcher"])
+
+        self.logger.info(f"Found {match_count} matches to known objects")
+
+        return res
+
     def run_search(self):
         # Check that KBMOD has access to a GPU before starting the search.
         if not kb_has_gpu():
@@ -100,6 +194,9 @@ class KBMODSearcher:
         res = kbmod.run_search.SearchRunner().run_search_from_work_unit(wu)
         self.logger.info("Search complete")
         self.logger.info(f"Number of results found: {len(res)}")
+
+        # Perform ephemeris matching if configured
+        res = self.match_results_to_ephemeris(res, wu.wcs, wu.barycentric_distance)
 
         self.logger.info(f"Writing results to output file: {self.result_filepath}")
         res.write_table(self.result_filepath)
