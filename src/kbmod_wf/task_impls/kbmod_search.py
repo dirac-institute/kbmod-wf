@@ -74,6 +74,11 @@ class KBMODSearcher:
         wu = WorkUnit.from_sharded_fits(wu_filename, directory_containing_shards, lazy=False)
         self.logger.debug("Loaded work unit")
 
+        # We may filter out images for the in-memory WorkUnit later on in search, but we would
+        # still like to cleanup shards for any filtered out images, hence we need to store the
+        # original WorkUnit size.
+        orig_wu_size = len(wu)
+
         #! Seems odd that we extract, modify, and reset the config in the workunit.
         #! Can we just modify the config in the workunit directly?
         if self.search_config_filepath is not None:
@@ -114,7 +119,7 @@ class KBMODSearcher:
                 self.logger.warning(f"Failed to remove {self.input_wu_filepath}: {e}")
 
             # Delete the individual shards for this WorkUnit, one existing for each image.
-            for i in range(len(wu)):
+            for i in range(orig_wu_size):
                 shard_path = os.path.join(directory_containing_shards, f"{i}_{wu_filename}")
                 try:
                     os.remove(shard_path)
