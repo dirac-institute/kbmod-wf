@@ -91,9 +91,6 @@ def make_sbatch_file(generic_sbatch_file, basedir, comment=None):
         with open(generic_sbatch_file, "r") as g:
             for line in g:
                 line = line.rstrip("\n")
-                #               if line.startswith("#") or len(line) == 0:
-                #                   print(line, file=f)
-                #                   continue
                 found_key = False
                 for key in lookup_dict:
                     if key in line:
