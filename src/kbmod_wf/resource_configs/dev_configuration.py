@@ -13,11 +13,6 @@ def dev_resource_config():
     return Config(
         # put the log files in in the top level folder, "run_logs".
         run_dir=os.path.join(project_dir, "run_logs", datetime.date.today().isoformat()),
-        app_cache=True,
-        checkpoint_mode="task_exit",
-        checkpoint_files=get_all_checkpoints(
-            os.path.join(project_dir, "run_logs", datetime.date.today().isoformat())
-        ),
         executors=[
             ThreadPoolExecutor(
                 label="local_dev_testing",

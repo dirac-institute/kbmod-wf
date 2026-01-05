@@ -1,11 +1,11 @@
 import platform
 import toml
-from typing import Literal
+from typing import Literal, Optional
 
 from kbmod_wf.resource_configs import *
 
 
-def get_resource_config(env: Literal["dev", "klone", "usdf"] | None = None):
+def get_resource_config(env: Optional[Literal["dev", "klone", "usdf"]] = None):
     """A naive attempt to return a reasonable configuration using platform.system.
     This will likely be insufficient in a very short amount of time, but this
     is meant to be a first step.
