@@ -6,22 +6,12 @@ from kbmod_wf.utilities.configuration_utilities import get_resource_config
 
 class TestResourceConfig(unittest.TestCase):
     def test_load_dev_configuration(self):
-        """
-        Verify that the 'dev' resource configuration can be instantiated.
-
-        This ensures that the configuration does not use any deprecated arguments
-        that would cause a TypeError during initialization.
-        """
+        """Verify that the 'dev' resource configuration can be instantiated."""
         config = get_resource_config(env="dev")
         self.assertIsInstance(config, Config)
 
     def test_load_klone_configuration(self):
-        """
-        Verify that the 'klone' resource configuration can be instantiated.
-
-        This ensures that the configuration does not use any deprecated arguments
-        that would cause a TypeError during initialization.
-        """
+        """Verify that the 'klone' resource configuration can be instantiated."""
         config = get_resource_config(env="klone")
         self.assertIsInstance(config, Config)
 
@@ -42,12 +32,10 @@ class TestResourceConfig(unittest.TestCase):
             self.assertIsInstance(config, Config)
         except Exception as e:
             # If it fails due to missing environment vars or paths, that's "okay" for this specific check
-            # as long as it's NOT the TypeError regarding deprecated arguments we are fixing.
+            # as long as it's NOT the TypeError regarding deprecated arguments.
             if "unexpected keyword argument" in str(e):
                 self.fail(f"Config init failed with TypeError: {e}")
-            # Otherwise, we ignore failures related to missing environment/system dependencies
-            # as we are only testing for the deprecation regression here.
-            pass
+
 
 if __name__ == "__main__":
     unittest.main()
