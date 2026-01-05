@@ -27,12 +27,6 @@ im_filepath: null
 legacy_filename: null
 lh_level: 5.0
 max_lh: 10000.0
-mom_lims:
-  - 35.5
-  - 35.5
-  - 2.0
-  - 0.3
-  - 0.3
 num_obs: 7
 peak_offset:
   - 2.0
