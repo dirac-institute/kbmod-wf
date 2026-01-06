@@ -82,7 +82,7 @@ dashboard/
 │   ├── parsl_monitor.py  # Query Parsl monitoring.db
 │   ├── log_parser.py     # Parse and search log files
 │   ├── state_manager.py  # Manage retry queue and dashboard state
-│   └── workflow_builder.py # Generate workflow configurations
+│   └── workflow_builder.py # Wrapper around scripts/parsl_configurator.py
 ├── models/
 │   ├── task.py           # Task status models
 │   ├── workflow.py       # Workflow configuration models
@@ -218,6 +218,162 @@ registry.register_future('create_manifest', create_manifest_future)
 registry.register_future('reproject_wu_0', reproject_future)
 # ... etc
 ```
+
+### 2.5 Integration with parsl_configurator.py
+
+**Leveraging Existing Configuration Generator:**
+
+The existing `scripts/parsl_configurator.py` provides a robust foundation for workflow configuration generation. The dashboard will use this as the backend configuration engine rather than reimplementing the logic.
+
+**Key Features to Expose in Dashboard:**
+
+From `parsl_configurator.py`, the dashboard UI will expose:
+- `--basedir`: Staging directory path (required)
+- `--reflex-distances`: Helio reflex correction distances (auto-detected or manual)
+- `--site-name`: Observatory site name (default: "Rubin")
+- `--disable-cleanup`: Toggle WorkUnit cleanup (default: False)
+- `--nworkers`: Number of workers/cores (default: 32)
+- `--repo-path`: Butler repository path (default: /repo/main)
+- Generic template paths (advanced users only)
+
+**Dashboard Workflow Builder Implementation:**
+
+```python
+# dashboard/data/workflow_builder.py
+import subprocess
+from pathlib import Path
+from typing import Optional, List
+
+class WorkflowBuilder:
+    """Wrapper around scripts/parsl_configurator.py for dashboard integration."""
+
+    def __init__(self, parsl_configurator_path: str):
+        self.configurator_path = Path(parsl_configurator_path)
+
+    def generate_config(
+        self,
+        basedir: str,
+        reflex_distances: Optional[List[float]] = None,
+        site_name: str = "Rubin",
+        disable_cleanup: bool = False,
+        nworkers: int = 32,
+        repo_path: str = "/repo/main",
+        generic_toml_path: Optional[str] = None,
+        generic_sbatch_path: Optional[str] = None,
+        generic_yaml_path: Optional[str] = None,
+    ) -> dict:
+        """
+        Generate workflow configuration files using parsl_configurator.py.
+
+        Returns:
+            dict with paths to generated files:
+            {
+                'runtime_config': '<basedir>/runtime_config.toml',
+                'sbatch_script': '<basedir>/parent_parsl_sbatch.sh',
+                'search_config': '<basedir>/search_config.yaml'
+            }
+        """
+        cmd = [
+            "python", str(self.configurator_path),
+            "--basedir", basedir,
+            "--site-name", site_name,
+            "--nworkers", str(nworkers),
+            "--repo-path", repo_path,
+        ]
+
+        if reflex_distances:
+            cmd.extend(["--reflex-distances"] + [str(d) for d in reflex_distances])
+
+        if disable_cleanup:
+            cmd.append("--disable-cleanup")
+
+        # Advanced options
+        if generic_toml_path:
+            cmd.extend(["--generic-toml-path", generic_toml_path])
+        if generic_sbatch_path:
+            cmd.extend(["--generic-sbatch-path", generic_sbatch_path])
+        if generic_yaml_path:
+            cmd.extend(["--generic-yaml-path", generic_yaml_path])
+
+        # Run configurator
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+
+        # Return paths to generated files
+        return {
+            'runtime_config': f"{basedir}/runtime_config.toml",
+            'sbatch_script': f"{basedir}/parent_parsl_sbatch.sh",
+            'search_config': f"{basedir}/search_config.yaml",
+            'output': result.stdout
+        }
+
+    def validate_basedir(self, basedir: str) -> dict:
+        """
+        Validate that basedir contains necessary ImageCollection files.
+
+        Returns validation result with auto-detected metadata.
+        """
+        basedir_path = Path(basedir)
+        collections = list(basedir_path.glob("*.collection"))
+
+        validation = {
+            'valid': False,
+            'collections_found': len(collections),
+            'auto_reflex_distance': None,
+            'errors': []
+        }
+
+        if not basedir_path.exists():
+            validation['errors'].append(f"Directory does not exist: {basedir}")
+            return validation
+
+        if len(collections) == 0:
+            validation['errors'].append("No .collection files found in basedir")
+            return validation
+
+        # Try to auto-detect reflex distance
+        try:
+            import kbmod
+            ic = kbmod.ImageCollection.read(str(collections[0]))
+            validation['auto_reflex_distance'] = float(ic["helio_guess_dist"][0])
+            validation['valid'] = True
+        except Exception as e:
+            validation['errors'].append(f"Could not read ImageCollection: {str(e)}")
+
+        return validation
+```
+
+**Dashboard UI Workflow:**
+
+1. **User Input Form:**
+   - Required: Basedir path (with file browser)
+   - Auto-detect: Reflex distances (with manual override)
+   - Optional: Site name, nworkers, repo path, cleanup toggle
+   - Advanced: Custom template paths (collapsible section)
+
+2. **Pre-flight Validation:**
+   - Click "Validate" button
+   - Dashboard calls `workflow_builder.validate_basedir()`
+   - Shows detected ImageCollections count
+   - Shows auto-detected reflex distance
+   - Displays any errors
+
+3. **Configuration Generation:**
+   - Click "Generate Config" button
+   - Dashboard calls `workflow_builder.generate_config()`
+   - Shows generated file paths
+   - Provides "Review Config" button to view TOML/YAML
+
+4. **Workflow Submission:**
+   - Click "Submit Workflow" button
+   - Dashboard submits generated sbatch script via `sbatch`
+   - Redirects to workflow monitoring view
+
+**Benefits of This Approach:**
+
+- **Reuse existing, tested code** rather than reimplementing configuration logic
+- **Consistent behavior** between CLI and dashboard workflows
+- **Easy maintenance** - updates to parsl_configurator.py automatically benefit dashboard
+- **Gradual migration** - users can transition from CLI to dashboard at their own pace
 
 ## 3. Data Flow
 
@@ -639,17 +795,19 @@ class RetryManager:
 
 **Deliverables:**
 - [ ] Workflow submission API
-- [ ] Configuration validation
-- [ ] SBATCH script generation
+- [ ] Configuration validation using parsl_configurator.py
+- [ ] WorkflowBuilder wrapper class
 - [ ] Frontend: Workflow execution form
 - [ ] Integration with SLURM submission
+- [ ] Documentation: Workflow submission guide
 
 **Tasks:**
-1. Implement workflow submission API
-2. Create configuration validator
-3. Build SBATCH script generator
-4. Create frontend form for workflow config
+1. Implement WorkflowBuilder wrapper around scripts/parsl_configurator.py
+2. Create workflow submission API endpoints
+3. Implement basedir validation with auto-detection
+4. Build frontend form for workflow config (basedir, reflex distances, etc.)
 5. Test end-to-end submission flow
+6. Write workflow submission documentation
 
 ### Phase 3: Retry Management (2 weeks)
 
