@@ -78,7 +78,7 @@ class WUReprojector:
         # Default to 8 workers if not in the config. Value must be 0<num workers<65.
         self.n_workers = max(1, min(self.runtime_config.get("n_workers", 8), 64))
 
-        self.point_on_earth = EarthLocation.of_site(self.runtime_config.get("observation_site", "ctio"))
+        self.point_on_earth = EarthLocation.of_site(self.runtime_config.get("observation_site", "Rubin"))
 
     def reproject_workunit(self):
         last_time = time.time()
