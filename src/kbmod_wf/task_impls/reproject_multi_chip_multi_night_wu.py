@@ -89,6 +89,7 @@ class WUReprojector:
             save=False,
             runtime_config=self.runtime_config,
             logger=self.logger,
+            guess_dist=self.guess_dist,
         )
         elapsed = round(time.time() - last_time, 1)
         self.logger.debug(
