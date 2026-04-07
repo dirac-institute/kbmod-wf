@@ -88,7 +88,7 @@ class ICtoWUConverter:
 
         # Save injected catalog as parquet alongside the input ImageCollection
         last_time = time.time()
-        injected_cat_filepath = self.ic_filepath + ".injection_cat.parquet"
+        injected_cat_filepath = str(self.ic_filepath) + ".injection_cat.parquet"
         injected_cats.to_pandas().to_parquet(injected_cat_filepath)
         elapsed = round(time.time() - last_time, 1)
         self.logger.debug(f"Required {elapsed}[s] to save injected catalog to: {injected_cat_filepath}")
@@ -140,9 +140,7 @@ def ic_to_injected_ic(ic, butler, runtime_config, heliocentric_distance, n_objs_
     """
     from kbmod.configuration import SearchConfiguration
 
-    search_config = SearchConfiguration.from_file(
-        runtime_config["apps"]["reproject_wu"]["search_config_filepath"]
-    )
+    search_config = SearchConfiguration.from_file(runtime_config.get("search_config_filepath", None))
 
     catalog = ic.generate_injection_catalog(
         search_config=search_config,
