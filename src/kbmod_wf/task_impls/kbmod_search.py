@@ -1,4 +1,5 @@
 import kbmod
+from kbmod.injection import match_injection_results
 from kbmod.search import kb_has_gpu
 from kbmod.work_unit import WorkUnit
 
@@ -105,6 +106,27 @@ class KBMODSearcher:
         res = kbmod.run_search.SearchRunner().run_search_from_work_unit(wu)
         self.logger.info("Search complete")
         self.logger.info(f"Number of results found: {len(res)}")
+
+        if res.wcs is None:
+            self.logger.warning("Results WCS is None. Adding from resampled WorkUnit.")
+            res.wcs = wu.wcs
+
+        # Drop everything after collection from wu_filename
+        injection_cat_filename = wu_filename[wu_filename.find("collection") :] + ".injection_cat.parquet"
+        injection_cat_path = os.path.join(directory_containing_shards, injection_cat_filename)
+        # Match injection results here since injection catalogs are per-image collection, and it only makes
+        # sense to match them on a per-results file basis.
+        res_with_match, recovered, missed = match_injection_results(
+            catalog=injection_cat_path,
+            results=res,
+            guess_distance=wu.barycentric_distance,
+            sep_thresh=5.0,  # arcsec
+            min_obs=3,  # min matching obs for recovery
+        )
+
+        res = res_with_match
+        self.logger.info(f"Recovered {recovered} injected objects from {len(res)} results.")
+        self.logger.info(f"Missed {missed} injected objects from {len(res)} results.")
 
         self.logger.info(f"Writing results to output file: {self.result_filepath}")
         res.write_table(self.result_filepath)
