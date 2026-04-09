@@ -81,24 +81,29 @@ class ICtoWUConverter:
         elapsed = round(time.time() - last_time, 1)
         self.logger.debug(f"Required {elapsed}[s] to instantiate butler.")
 
-        last_time = time.time()
-        ic, injected_cats, global_wcs = ic_to_injected_ic(
-            ic,
-            this_butler,
-            self.runtime_config,
-            self.guess_dist,
-            ic_filepath=self.ic_filepath,
-            logger=self.logger,
-        )
-        elapsed = round(time.time() - last_time, 1)
-        self.logger.debug(f"Required {elapsed}[s] to inject objects into ImageCollection.")
+        # Check if injection is configured - skip entirely if not
+        injection_config = self.runtime_config.get("injection", None)
+        if injection_config is None:
+            self.logger.info("No injection config provided, skipping injection step.")
+        else:
+            last_time = time.time()
+            ic, injected_cats = ic_to_injected_ic(
+                ic,
+                this_butler,
+                self.runtime_config,
+                self.guess_dist,
+                ic_filepath=self.ic_filepath,
+                logger=self.logger,
+            )
+            elapsed = round(time.time() - last_time, 1)
+            self.logger.debug(f"Required {elapsed}[s] to inject objects into ImageCollection.")
 
-        # Save injected catalog as parquet alongside the input ImageCollection
-        last_time = time.time()
-        injected_cat_filepath = str(self.ic_filepath) + ".injection_cat.parquet"
-        injected_cats.to_pandas().to_parquet(injected_cat_filepath)
-        elapsed = round(time.time() - last_time, 1)
-        self.logger.debug(f"Required {elapsed}[s] to save injected catalog to: {injected_cat_filepath}")
+            # Save injected catalog as parquet alongside the input ImageCollection
+            last_time = time.time()
+            injected_cat_filepath = str(self.ic_filepath) + ".injection_cat.parquet"
+            injected_cats.to_pandas().to_parquet(injected_cat_filepath)
+            elapsed = round(time.time() - last_time, 1)
+            self.logger.debug(f"Required {elapsed}[s] to save injected catalog to: {injected_cat_filepath}")
 
         last_time = time.time()
         orig_wu = ic.toWorkUnit(
@@ -121,7 +126,7 @@ class ICtoWUConverter:
         return self.wu_filepath
 
 
-def ic_to_injected_ic(ic, butler, runtime_config, heliocentric_distance, ic_filepath=None, logger=None):
+def ic_to_injected_ic(ic, butler, runtime_config, heliocentric_distance, ic_filepath, logger=None):
     """
     Inject synthetic solar system objects into an ImageCollection.
 
@@ -142,15 +147,16 @@ def ic_to_injected_ic(ic, butler, runtime_config, heliocentric_distance, ic_file
         - catalog_mapping_path : str - Path to parquet file mapping IC paths to catalog paths
     heliocentric_distance : float
         The heliocentric distance (AU) of the objects to inject.
-    ic_filepath : str, optional
-        The filepath of the input ImageCollection, used for catalog mapping lookup.
+    ic_filepath : str
+        The filepath of the input ImageCollection, used for catalog mapping lookup
+        and for saving provenance catalogs.
     logger : Logger, optional
         Logger for debug output.
 
     Returns
     -------
     tuple
-        A tuple containing (injected_ic, injected_cats, global_wcs).
+        A tuple containing (injected_ic, injected_cats).
 
     Raises
     ------
@@ -195,10 +201,16 @@ def ic_to_injected_ic(ic, butler, runtime_config, heliocentric_distance, ic_file
             mag_range=tuple(mag_range),
         )
 
+    # Save input catalog for provenance (before injection may filter some sources)
+    input_cat_filepath = str(ic_filepath) + ".injection_input_cat.parquet"
+    catalog.to_pandas().to_parquet(input_cat_filepath)
+    if logger:
+        logger.debug(f"Saved input catalog for provenance: {input_cat_filepath}")
+
     # Perform the injection
     injected_ic, injected_cats = ic.inject_sources(catalog=catalog, butler=butler)
 
-    return injected_ic, injected_cats, None
+    return injected_ic, injected_cats
 
 
 def _validate_injected_mask_support(ic, butler, logger=None):
