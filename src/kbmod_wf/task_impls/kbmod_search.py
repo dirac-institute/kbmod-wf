@@ -134,7 +134,7 @@ class KBMODSearcher:
 
         if self.cleanup_wu:
             self.logger.info(f"Cleaning up sharded WorkUnit {self.input_wu_filepath} with {len(wu)}")
-            # Delete the head filefor the WorkUnit
+            # Delete the head file for the WorkUnit
             try:
                 os.remove(self.input_wu_filepath)
             except Exception as e:

@@ -7,6 +7,7 @@ from astropy.table import Table
 
 from kbmod import ImageCollection
 from kbmod.configuration import SearchConfiguration
+from kbmod.injection import generate_injection_catalog, inject_sources_into_ic
 from lsst.daf.butler import Butler
 
 
@@ -131,7 +132,7 @@ def ic_to_injected_ic(ic, butler, runtime_config, heliocentric_distance, ic_file
     Inject synthetic solar system objects into an ImageCollection.
 
     Supports two modes:
-    1. **Generative**: Randomly generate an injection catalog using `ic.generate_injection_catalog()`
+    1. **Generative**: Randomly generate an injection catalog using `generate_injection_catalog()`
     2. **Pre-Computed**: Load a pre-existing catalog from a mapping file
 
     Parameters
@@ -193,7 +194,8 @@ def ic_to_injected_ic(ic, butler, runtime_config, heliocentric_distance, ic_file
 
         search_config = SearchConfiguration.from_file(runtime_config.get("search_config_filepath", None))
 
-        catalog = ic.generate_injection_catalog(
+        catalog = generate_injection_catalog(
+            ic=ic,
             search_config=search_config,
             global_wcs=ic.get_global_wcs(auto_fit=False),
             n_objs_per_ic=n_objs_per_ic,
@@ -208,7 +210,7 @@ def ic_to_injected_ic(ic, butler, runtime_config, heliocentric_distance, ic_file
         logger.debug(f"Saved input catalog for provenance: {input_cat_filepath}")
 
     # Perform the injection
-    injected_ic, injected_cats = ic.inject_sources(catalog=catalog, butler=butler)
+    injected_ic, injected_cats = inject_sources_into_ic(ic, catalog=catalog, butler=butler)
 
     return injected_ic, injected_cats
 
