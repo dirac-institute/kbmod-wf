@@ -111,22 +111,41 @@ class KBMODSearcher:
             self.logger.warning("Results WCS is None. Adding from resampled WorkUnit.")
             res.wcs = wu.wcs
 
-        # Drop everything after collection from wu_filename
-        injection_cat_filename = wu_filename[wu_filename.find("collection") :] + ".injection_cat.parquet"
+        # Extract the original collection filename by removing the ".wu.{dist}.repro" suffix
+        # e.g., "468929_65.0_20X20_0_to_99.collection.wu.65.0.repro" -> "468929_65.0_20X20_0_to_99.collection"
+        wu_suffix_start = wu_filename.find(".wu.")
+        if wu_suffix_start != -1:
+            collection_filename = wu_filename[:wu_suffix_start]
+        else:
+            # Fallback: use the full filename if ".wu." not found
+            collection_filename = wu_filename
+        injection_cat_filename = collection_filename + ".injection_cat.parquet"
         injection_cat_path = os.path.join(directory_containing_shards, injection_cat_filename)
-        # Match injection results here since injection catalogs are per-image collection, and it only makes
-        # sense to match them on a per-results file basis.
-        res_with_match, recovered, missed = match_injection_results(
-            catalog=injection_cat_path,
-            results=res,
-            guess_distance=wu.barycentric_distance,
-            sep_thresh=5.0,  # arcsec
-            min_obs=3,  # min matching obs for recovery
-        )
 
-        res = res_with_match
-        self.logger.info(f"Recovered {recovered} injected objects from {len(res)} results.")
-        self.logger.info(f"Missed {missed} injected objects from {len(res)} results.")
+        # Match injection results if catalog exists (injection was performed)
+        if os.path.exists(injection_cat_path):
+            self.logger.info(f"Found injection catalog: {injection_cat_path}")
+            res_with_match, recovered, missed = match_injection_results(
+                catalog=injection_cat_path,
+                results=res,
+                guess_distance=wu.barycentric_distance,
+                sep_thresh=5.0,  # arcsec
+                min_obs=3,  # min matching obs for recovery
+            )
+            res = res_with_match
+            self.logger.info(f"Recovered {len(recovered)} injected objects from {len(res)} results.")
+            self.logger.info(f"Missed {len(missed)} injected objects from {len(res)} results.")
+
+            # Convert dict/list columns to JSON strings for parquet serialization
+            import json
+
+            for col in ["injected_sources", "recovered_injected_sources_min_obs_3"]:
+                if col in res.table.colnames:
+                    res.table[col] = [json.dumps(d) if d else "" for d in res.table[col]]
+        else:
+            self.logger.info(
+                f"No injection catalog found at {injection_cat_path}, skipping injection matching."
+            )
 
         self.logger.info(f"Writing results to output file: {self.result_filepath}")
         res.write_table(self.result_filepath)
