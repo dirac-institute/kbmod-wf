@@ -27,6 +27,20 @@ butler_config_filepath = "/gscratch/dirac/DEEP/repo/butler.yaml"
 # Remove a previously created WU file if it exists
 overwrite = false
 
+# Injection configuration section
+# Supports two modes: Generative (random catalog) or Pre-Computed (user-supplied catalog)
+[apps.ic_to_wu.injection]
+# Number of synthetic objects to inject per ImageCollection (Generative mode)
+n_objs_per_ic = 50
+
+# Magnitude range [min, max] for injected objects (Generative mode)
+mag_range = [19.0, 26.0]
+
+# Path to a parquet file mapping IC filepaths to pre-computed catalog filepaths (Pre-Computed mode)
+# If specified and a matching catalog is found, generation is bypassed.
+# The parquet should have columns: "ic_filepath" and "catalog_filepath"
+# catalog_mapping_path = "/path/to/catalog_mapping.parquet"
+
 
 [apps.reproject_wu]
 # Number of processors to use for parallelizing the reprojection

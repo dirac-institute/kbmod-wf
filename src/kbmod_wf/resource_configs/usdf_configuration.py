@@ -20,7 +20,13 @@ import logging  # COC
 import numpy as np
 import platform
 
-nodename_map = {"sdfada": "ada", "sdfampere": "ampere", "sdfroma": "roma", "sdfmilano": "milano"}
+nodename_map = {
+    "sdfada": "ada",
+    "sdfampere": "ampere",
+    "sdfroma": "roma",
+    "sdfmilano": "milano",
+    "sdftorino": "torino",
+}
 
 slurm_cmd_timeout = 60  # default is 10 and that is timing out for sacct -X 5/1/2025 COC
 
@@ -29,6 +35,7 @@ max_ram_dict = {
     "ampere": 952,  # 896 per each of the two nodes we can access, each with 4 GPUs
     "roma": 140,  # 240 to 140
     "milano": 140,  # 240 to 140
+    "torino": 700,  # 2/3/2026 COC/WSB
 }
 max_block_dict = {"ada": 1, "ampere": 2}
 gpus_per_node_dict = {"ada": 5, "ampere": 4}
@@ -46,6 +53,12 @@ cpu_partition = cpus_for_gpus_dict[gpu_partition]
 if "GPUNODE" in os.environ:
     gpu_partition = os.environ["GPUNODE"].lower()
     print(f"Set gpu_partition to {gpu_partition} via environment variable GPUNODE.")
+
+
+# 2/3/2026 COC
+if "CPUNODE" in os.environ:
+    cpu_partition = os.environ["CPUNODE"].lower()
+    print(f"Set cpu_partition to {cpu_partition} via environment variable CPUNODE.")
 
 
 walltimes = {
@@ -93,8 +106,8 @@ def usdf_resource_config():
                 provider=SlurmProvider(
                     partition=gpu_partition,  # or ada
                     account=account_name,
-                    min_blocks=max_nodes_dict[gpu_partition],  # was 0
-                    init_blocks=max_nodes_dict[gpu_partition],  # added 4/29/2025 COC
+                    min_blocks=0,  # was 0
+                    init_blocks=0,  # added 4/29/2025 COC
                     max_blocks=max_block_dict[
                         gpu_partition
                     ],  # 8 to 24 4/16/2025 COC to 12 4/20/2025 COC to 8 4/22/2025 COC

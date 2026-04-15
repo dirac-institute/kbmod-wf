@@ -89,6 +89,7 @@ class WUReprojector:
             save=False,
             runtime_config=self.runtime_config,
             logger=self.logger,
+            guess_dist=self.guess_dist,
         )
         elapsed = round(time.time() - last_time, 1)
         self.logger.debug(
@@ -124,12 +125,8 @@ class WUReprojector:
         # Use the global WCS that was specified from the ImageCollection.
         ic = ImageCollection.read(self.ic_filepath, format="ascii.ecsv")
 
-        # Pick the first global WCS and pixel shape from the ImageCollection
-        common_wcs = WCS(ic.data["global_wcs"][0])
-        common_wcs.pixel_shape = (
-            ic.data["global_wcs_pixel_shape_0"][0],
-            ic.data["global_wcs_pixel_shape_1"][0],
-        )
+        # Pick the global WCS from the ImageCollection, or auto-fit if none exist
+        common_wcs = ic.get_global_wcs(auto_fit=False)
 
         resampled_wu = reprojection.reproject_work_unit(
             wu,

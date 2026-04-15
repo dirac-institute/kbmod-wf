@@ -1,4 +1,5 @@
 import kbmod
+from kbmod.injection import match_injection_results
 from kbmod.search import kb_has_gpu
 from kbmod.work_unit import WorkUnit
 
@@ -106,13 +107,53 @@ class KBMODSearcher:
         self.logger.info("Search complete")
         self.logger.info(f"Number of results found: {len(res)}")
 
+        if res.wcs is None:
+            self.logger.warning("Results WCS is None. Adding from resampled WorkUnit.")
+            res.wcs = wu.wcs
+
+        # Extract the original collection filename by removing the ".wu.{dist}.repro" suffix
+        # e.g., "468929_65.0_20X20_0_to_99.collection.wu.65.0.repro" -> "468929_65.0_20X20_0_to_99.collection"
+        wu_suffix_start = wu_filename.find(".wu.")
+        if wu_suffix_start != -1:
+            collection_filename = wu_filename[:wu_suffix_start]
+        else:
+            # Fallback: use the full filename if ".wu." not found
+            collection_filename = wu_filename
+        injection_cat_filename = collection_filename + ".injection_cat.parquet"
+        injection_cat_path = os.path.join(directory_containing_shards, injection_cat_filename)
+
+        # Match injection results if catalog exists (injection was performed)
+        if os.path.exists(injection_cat_path):
+            self.logger.info(f"Found injection catalog: {injection_cat_path}")
+            res_with_match, recovered, missed = match_injection_results(
+                catalog=injection_cat_path,
+                results=res,
+                guess_distance=wu.barycentric_distance,
+                sep_thresh=5.0,  # arcsec
+                min_obs=3,  # min matching obs for recovery
+            )
+            res = res_with_match
+            self.logger.info(f"Recovered {len(recovered)} injected objects from {len(res)} results.")
+            self.logger.info(f"Missed {len(missed)} injected objects from {len(res)} results.")
+
+            # Convert dict/list columns to JSON strings for parquet serialization
+            import json
+
+            for col in ["injected_sources", "recovered_injected_sources_min_obs_3"]:
+                if col in res.table.colnames:
+                    res.table[col] = [json.dumps(d) if d else "" for d in res.table[col]]
+        else:
+            self.logger.info(
+                f"No injection catalog found at {injection_cat_path}, skipping injection matching."
+            )
+
         self.logger.info(f"Writing results to output file: {self.result_filepath}")
         res.write_table(self.result_filepath)
         self.logger.info("Results written to file")
 
         if self.cleanup_wu:
             self.logger.info(f"Cleaning up sharded WorkUnit {self.input_wu_filepath} with {len(wu)}")
-            # Delete the head filefor the WorkUnit
+            # Delete the head file for the WorkUnit
             try:
                 os.remove(self.input_wu_filepath)
             except Exception as e:
