@@ -33,10 +33,17 @@ slurm_cmd_timeout = 60  # default is 10 and that is timing out for sacct -X 5/1/
 max_ram_dict = {
     "ada": 350,  # 351 Gb total, with 5 GPUs total on the one node, leaves 70 Gb per task
     "ampere": 952,  # 896 per each of the two nodes we can access, each with 4 GPUs
-    "roma": 140,  # 240 to 140
+    # roma raised 140 -> 440 (480 Gb nodes) for 20X20 reprojection: torino has
+    # been low on availability (and our association is blocked there), so run
+    # reproject on roma with FEWER blocks but near-full-node memory to avoid
+    # OOMs. 6/2026 WSB
+    "roma": 440,
     "milano": 140,  # 240 to 140
     "torino": 700,  # 2/3/2026 COC/WSB
 }
+
+# Fewer reprojection workers (blocks); overridable per run via env. 6/2026 WSB
+reproject_max_blocks = int(os.environ.get("REPROJECT_MAX_BLOCKS", 8))
 max_block_dict = {"ada": 1, "ampere": 2}
 gpus_per_node_dict = {"ada": 5, "ampere": 4}
 max_nodes_dict = {"ada": 1, "ampere": 2}
@@ -84,7 +91,7 @@ def usdf_resource_config():
                     partition=cpu_partition,  # or ada?; see resource notes at top
                     account=account_name,
                     min_blocks=0,
-                    max_blocks=20,  # 12 to 20 4/16/2025 COC
+                    max_blocks=reproject_max_blocks,  # 20 -> env REPROJECT_MAX_BLOCKS (default 8) 6/2026 WSB
                     init_blocks=0,
                     parallelism=1,
                     nodes_per_block=1,
