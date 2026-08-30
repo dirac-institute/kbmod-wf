@@ -180,17 +180,39 @@ def ic_to_injected_ic(ic, butler, runtime_config, heliocentric_distance, ic_file
     # Safety validation: Check for INJECTED bit flag support
     _validate_injected_mask_support(ic, butler, logger)
 
-    # Determine catalog source: pre-computed or generative
+    # Determine catalog source: pre-computed (from mapping) or generative.
+    # IMPORTANT: when a catalog_mapping_path is configured we NEVER silently fall
+    # back to a randomly generated catalog. A failed lookup is a hard error so a
+    # broken mapping cannot masquerade as a successful curated-catalog injection.
     catalog = None
 
     if catalog_mapping_path is not None:
         # Pre-computed catalog mode: look up catalog path from mapping file
         catalog = _load_catalog_from_mapping(catalog_mapping_path, ic_filepath, logger)
+        if catalog is None:
+            raise RuntimeError(
+                "Injection was configured with "
+                f"catalog_mapping_path={catalog_mapping_path!r}, but no matching "
+                f"pre-computed catalog resolved for IC {ic_filepath!r}. Refusing to "
+                "silently generate a random catalog. Verify that the mapping file's "
+                "'ic_filepath' column contains this exact IC path (os.path.abspath, "
+                "symlinks not resolved)."
+            )
+        if logger:
+            n_objs = len(set(catalog["obj_ids"])) if "obj_ids" in catalog.colnames else "?"
+            logger.info(
+                f"Loaded pre-computed injection catalog for IC {ic_filepath}: "
+                f"{len(catalog)} rows, {n_objs} objects."
+            )
 
     if catalog is None:
-        # Generative mode: create catalog using kbmod's injection module
+        # Generative mode: ONLY reached when no catalog_mapping_path was configured.
         if logger:
-            logger.info(f"Generating injection catalog with {n_objs_per_ic} objects")
+            logger.warning(
+                f"No catalog_mapping_path configured -- GENERATING a RANDOM injection "
+                f"catalog of {n_objs_per_ic} objects (mag {mag_range}). These are "
+                "synthetic random trajectories, NOT curated catalog objects."
+            )
 
         search_config = SearchConfiguration.from_file(runtime_config.get("search_config_filepath", None))
 
