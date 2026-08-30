@@ -131,6 +131,7 @@ class KBMODSearcher:
                 guess_distance=wu.barycentric_distance,
                 sep_thresh=5.0,  # arcsec
                 min_obs=3,  # min matching obs for recovery
+                obs_ratio=0.9,  # also flag object-completeness recovery (>=90% of the object's obs)
             )
             res = res_with_match
             self.logger.info(f"Recovered {len(recovered)} injected objects from {len(res)} results.")
@@ -139,7 +140,11 @@ class KBMODSearcher:
             # Convert dict/list columns to JSON strings for parquet serialization
             import json
 
-            for col in ["injected_sources", "recovered_injected_sources_min_obs_3"]:
+            for col in [
+                "injected_sources",
+                "recovered_injected_sources_min_obs_3",
+                "recovered_injected_sources_obs_ratio_0.9",
+            ]:
                 if col in res.table.colnames:
                     res.table[col] = [json.dumps(d) if d else "" for d in res.table[col]]
         else:
