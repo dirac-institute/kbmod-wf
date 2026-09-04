@@ -231,8 +231,14 @@ def ic_to_injected_ic(ic, butler, runtime_config, heliocentric_distance, ic_file
     if logger:
         logger.debug(f"Saved input catalog for provenance: {input_cat_filepath}")
 
-    # Perform the injection
-    injected_ic, injected_cats = inject_sources_into_ic(ic, catalog=catalog, butler=butler)
+    # Perform the injection. variance_scale is an experiment knob (empty-background /
+    # high-SNR runs); pass it ONLY when set to a non-default value so kbmod builds whose
+    # inject_sources_into_ic has no such parameter (e.g. the normal-injection runs) keep
+    # calling it exactly as before.
+    variance_scale = injection_config.get("variance_scale", 1.0)
+    _inj_extra = {} if variance_scale == 1.0 else {"variance_scale": variance_scale}
+    injected_ic, injected_cats = inject_sources_into_ic(
+        ic, catalog=catalog, butler=butler, **_inj_extra)
 
     return injected_ic, injected_cats
 
