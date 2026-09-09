@@ -61,6 +61,11 @@ class KBMODSearcher:
         # let sky-driven trajectories 10-25 px off the injected source claim it, inflating
         # spurious recoveries; 2.0 removes them with no loss of genuine detections.
         self.sep_thresh = self.runtime_config.get("sep_thresh", 2.0)
+        # Temporal match window in seconds. Default 10: the visit cadence (min inter-frame gap
+        # ~39s here) is finer than the old 60s default, so 60s could match a result frame into
+        # the adjacent visit (a slow TNO has barely moved); real matches sit at ~0s, so 10s
+        # keeps them all while forbidding that cross-visit leak. Overridable via runtime_config.
+        self.time_thresh_s = self.runtime_config.get("time_thresh_s", 10.0)
         self.results_directory = os.path.dirname(self.result_filepath)
 
         # Whether or not to randomize timestamp ordering to create bad searches
@@ -134,6 +139,7 @@ class KBMODSearcher:
                 results=res,
                 guess_distance=wu.barycentric_distance,
                 sep_thresh=self.sep_thresh,  # arcsec (default 2.0; configurable)
+                time_thresh_s=self.time_thresh_s,  # seconds (default 10.0; configurable)
                 min_obs=3,  # min matching obs for recovery
                 obs_ratio=0.9,  # also flag object-completeness recovery (>=90% of the object's obs)
             )
