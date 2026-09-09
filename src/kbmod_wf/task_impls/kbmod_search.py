@@ -57,6 +57,10 @@ class KBMODSearcher:
 
         self.search_config_filepath = self.runtime_config.get("search_config_filepath", None)
         self.cleanup_wu = self.runtime_config.get("cleanup_wu", False)
+        # Injection match radius in arcsec. Default 2.0: a 5.0 radius (~25 px at 42 au)
+        # let sky-driven trajectories 10-25 px off the injected source claim it, inflating
+        # spurious recoveries; 2.0 removes them with no loss of genuine detections.
+        self.sep_thresh = self.runtime_config.get("sep_thresh", 2.0)
         self.results_directory = os.path.dirname(self.result_filepath)
 
         # Whether or not to randomize timestamp ordering to create bad searches
@@ -129,7 +133,7 @@ class KBMODSearcher:
                 catalog=injection_cat_path,
                 results=res,
                 guess_distance=wu.barycentric_distance,
-                sep_thresh=5.0,  # arcsec
+                sep_thresh=self.sep_thresh,  # arcsec (default 2.0; configurable)
                 min_obs=3,  # min matching obs for recovery
                 obs_ratio=0.9,  # also flag object-completeness recovery (>=90% of the object's obs)
             )
