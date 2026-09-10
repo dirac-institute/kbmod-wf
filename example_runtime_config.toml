@@ -30,6 +30,13 @@ overwrite = false
 # Injection configuration section
 # Supports two modes: Generative (random catalog) or Pre-Computed (user-supplied catalog)
 [apps.ic_to_wu.injection]
+# Optional image controls (require KBMOD's zero-background injection support).
+# Keep only injected sources; normal injection retains the science background.
+zero_background = false
+# Reduce every output variance plane by 1e-4 for high-SNR recovery checks.
+# False leaves injector output variance untouched; no multiplication by 1.0.
+reduce_variance = false
+
 # Number of synthetic objects to inject per ImageCollection (Generative mode)
 n_objs_per_ic = 50
 
