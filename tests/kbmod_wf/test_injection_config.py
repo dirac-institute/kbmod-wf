@@ -40,17 +40,26 @@ def injection_module(monkeypatch):
 
 
 @pytest.mark.parametrize(
-    "zero_background,reduce_variance", [(False, False), (True, False), (False, True), (True, True)]
+    "zero_background,reduce_variance,constant_variance",
+    [
+        (False, False, False),
+        (True, False, False),
+        (False, True, False),
+        (True, True, False),
+        (False, False, True),
+        (True, False, True),
+    ],
 )
 @pytest.mark.parametrize("precomputed", [False, True])
 def test_runtime_toml_options_reach_injector(
-    injection_module, zero_background, reduce_variance, precomputed, caplog
+    injection_module, zero_background, reduce_variance, constant_variance, precomputed, caplog
 ):
     """Both catalog paths forward the requested booleans and fixed reduction factor."""
     runtime = toml.loads(
         "[apps.ic_to_wu.injection]\n"
         f"zero_background = {str(zero_background).lower()}\n"
         f"reduce_variance = {str(reduce_variance).lower()}\n"
+        f"constant_variance = {str(constant_variance).lower()}\n"
     )["apps"]["ic_to_wu"]
     if precomputed:
         runtime["injection"]["catalog_mapping_path"] = "mapping.parquet"
@@ -67,7 +76,10 @@ def test_runtime_toml_options_reach_injector(
     options = {}
     if zero_background:
         options["zero_background"] = True
-    if reduce_variance:
+    if constant_variance:
+        options["constant_variance"] = True
+        assert "constant variance planes of 1.0" in caplog.text
+    elif reduce_variance:
         options["variance_scale"] = 1e-4
         assert "variance_scale=0.0001" in caplog.text
     else:
@@ -90,7 +102,16 @@ def test_default_options_preserve_legacy_call(injection_module):
     )
 
 
-@pytest.mark.parametrize("name", ["zero_background", "reduce_variance"])
+def test_conflicting_variance_options_rejected(injection_module):
+    """Reject conflicting modes before loading any exposures or catalogs."""
+    runtime = {"injection": {"reduce_variance": True, "constant_variance": True}}
+    with pytest.raises(ValueError, match="cannot both be true"):
+        injection_module.ic_to_injected_ic(None, None, runtime, 40.0, "input.ecsv")
+    injection_module._validate_injected_mask_support.assert_not_called()
+    injection_module.inject_sources_into_ic.assert_not_called()
+
+
+@pytest.mark.parametrize("name", ["zero_background", "reduce_variance", "constant_variance"])
 @pytest.mark.parametrize("value", ["false", 1, None])
 def test_non_boolean_options_rejected(injection_module, name, value):
     """Reject truthy strings and numbers before loading or changing exposures."""

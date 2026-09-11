@@ -34,8 +34,10 @@ overwrite = false
 # Keep only injected sources; normal injection retains the science background.
 zero_background = false
 # Reduce every output variance plane by 1e-4 for high-SNR recovery checks.
-# False leaves injector output variance untouched; no multiplication by 1.0.
+# With both variance options false, output variance is untouched (no multiplication by 1.0).
 reduce_variance = false
+# Set every output variance plane to 1.0. Cannot be combined with reduce_variance.
+constant_variance = false
 
 # Number of synthetic objects to inject per ImageCollection (Generative mode)
 n_objs_per_ic = 50
