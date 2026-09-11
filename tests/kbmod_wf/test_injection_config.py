@@ -55,6 +55,7 @@ def test_runtime_toml_options_reach_injector(
     injection_module, zero_background, reduce_variance, constant_variance, precomputed, caplog
 ):
     """Both catalog paths forward the requested booleans and fixed reduction factor."""
+    # Parse real TOML, then select the app subsection passed by the workflow.
     runtime = toml.loads(
         "[apps.ic_to_wu.injection]\n"
         f"zero_background = {str(zero_background).lower()}\n"
@@ -73,6 +74,7 @@ def test_runtime_toml_options_reach_injector(
             ic, butler, runtime, 40.0, "input.ecsv", logger=logging.getLogger("test.injection")
         )
 
+    # Disabled options must be omitted entirely to preserve the legacy KBMOD call.
     options = {}
     if zero_background:
         options["zero_background"] = True
@@ -107,6 +109,7 @@ def test_conflicting_variance_options_rejected(injection_module):
     runtime = {"injection": {"reduce_variance": True, "constant_variance": True}}
     with pytest.raises(ValueError, match="cannot both be true"):
         injection_module.ic_to_injected_ic(None, None, runtime, 40.0, "input.ecsv")
+    # Reject the configuration before mask validation can load an exposure.
     injection_module._validate_injected_mask_support.assert_not_called()
     injection_module.inject_sources_into_ic.assert_not_called()
 
