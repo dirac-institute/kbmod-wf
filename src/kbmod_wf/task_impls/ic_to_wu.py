@@ -10,6 +10,8 @@ from kbmod.configuration import SearchConfiguration
 from kbmod.injection import generate_injection_catalog, inject_sources_into_ic
 from lsst.daf.butler import Butler
 
+_REDUCED_VARIANCE_SCALE = 1e-4
+
 
 def ic_to_wu(
     ic_filepath: str = None,
@@ -146,6 +148,10 @@ def ic_to_injected_ic(ic, butler, runtime_config, heliocentric_distance, ic_file
         - n_objs_per_ic : int - Number of objects to inject (default: 50)
         - mag_range : list - [min, max] magnitude range (default: [19.0, 26.0])
         - catalog_mapping_path : str - Path to parquet file mapping IC paths to catalog paths
+        - zero_background : bool - Keep only injected sources (default: False)
+        - reduce_variance : bool - Scale all returned variance planes by 1e-4 (default: False)
+        - constant_variance : bool - Set all returned variance planes to 1.0 (default: False);
+          cannot be combined with reduce_variance
     heliocentric_distance : float
         The heliocentric distance (AU) of the objects to inject.
     ic_filepath : str
@@ -173,9 +179,44 @@ def ic_to_injected_ic(ic, butler, runtime_config, heliocentric_distance, ic_file
     n_objs_per_ic = injection_config.get("n_objs_per_ic", 50)
     mag_range = injection_config.get("mag_range", [19.0, 26.0])
     catalog_mapping_path = injection_config.get("catalog_mapping_path", None)
+    zero_background = injection_config.get("zero_background", False)
+    reduce_variance = injection_config.get("reduce_variance", False)
+    constant_variance = injection_config.get("constant_variance", False)
+    for name, value in (
+        ("zero_background", zero_background),
+        ("reduce_variance", reduce_variance),
+        ("constant_variance", constant_variance),
+    ):
+        if not isinstance(value, bool):
+            raise ValueError(f"injection.{name} must be a boolean.")
+    if reduce_variance and constant_variance:
+        raise ValueError("injection.reduce_variance and injection.constant_variance cannot both be true.")
+
+    # Omit inactive options so the default path also works with older KBMOD versions.
+    injection_kwargs = {}
+    if zero_background:
+        injection_kwargs["zero_background"] = True
+    if reduce_variance:
+        injection_kwargs["variance_scale"] = _REDUCED_VARIANCE_SCALE
+    if constant_variance:
+        injection_kwargs["constant_variance"] = True
 
     if logger:
         logger.debug(f"Injection config: n_objs={n_objs_per_ic}, mag_range={mag_range}")
+        logger.info(
+            "Injection image options: zero_background=%s, reduce_variance=%s, constant_variance=%s.",
+            zero_background,
+            reduce_variance,
+            constant_variance,
+        )
+        if constant_variance:
+            logger.info("Requesting constant variance planes of 1.0 for all returned exposures.")
+        elif reduce_variance:
+            logger.info(
+                "Requesting variance_scale=%g for all injected output exposures.", _REDUCED_VARIANCE_SCALE
+            )
+        else:
+            logger.info("Variance reduction disabled; no variance scaling requested.")
 
     # Safety validation: Check for INJECTED bit flag support
     _validate_injected_mask_support(ic, butler, logger)
@@ -210,7 +251,9 @@ def ic_to_injected_ic(ic, butler, runtime_config, heliocentric_distance, ic_file
         logger.debug(f"Saved input catalog for provenance: {input_cat_filepath}")
 
     # Perform the injection
-    injected_ic, injected_cats = inject_sources_into_ic(ic, catalog=catalog, butler=butler)
+    injected_ic, injected_cats = inject_sources_into_ic(
+        ic, catalog=catalog, butler=butler, **injection_kwargs
+    )
 
     return injected_ic, injected_cats
 
