@@ -149,6 +149,7 @@ def ic_to_injected_ic(ic, butler, runtime_config, heliocentric_distance, ic_file
         - mag_range : list - [min, max] magnitude range (default: [19.0, 26.0])
         - catalog_mapping_path : str - Path to parquet file mapping IC paths to catalog paths
         - zero_background : bool - Keep only injected sources (default: False)
+        - disable_mask : bool - Bypass standardizer masking in the output WorkUnit (default: False)
         - reduce_variance : bool - Scale all returned variance planes by 1e-4 (default: False)
         - constant_variance : bool - Set all returned variance planes to 1.0 (default: False);
           cannot be combined with reduce_variance
@@ -182,10 +183,12 @@ def ic_to_injected_ic(ic, butler, runtime_config, heliocentric_distance, ic_file
     zero_background = injection_config.get("zero_background", False)
     reduce_variance = injection_config.get("reduce_variance", False)
     constant_variance = injection_config.get("constant_variance", False)
+    disable_mask = injection_config.get("disable_mask", False)
     for name, value in (
         ("zero_background", zero_background),
         ("reduce_variance", reduce_variance),
         ("constant_variance", constant_variance),
+        ("disable_mask", disable_mask),
     ):
         if not isinstance(value, bool):
             raise ValueError(f"injection.{name} must be a boolean.")
@@ -200,14 +203,17 @@ def ic_to_injected_ic(ic, butler, runtime_config, heliocentric_distance, ic_file
         injection_kwargs["variance_scale"] = _REDUCED_VARIANCE_SCALE
     if constant_variance:
         injection_kwargs["constant_variance"] = True
+    if disable_mask:
+        injection_kwargs["disable_mask"] = True
 
     if logger:
         logger.debug(f"Injection config: n_objs={n_objs_per_ic}, mag_range={mag_range}")
         logger.info(
-            "Injection image options: zero_background=%s, reduce_variance=%s, constant_variance=%s.",
+            "Injection image options: zero_background=%s, reduce_variance=%s, constant_variance=%s, disable_mask=%s.",
             zero_background,
             reduce_variance,
             constant_variance,
+            disable_mask,
         )
         if constant_variance:
             logger.info("Requesting constant variance planes of 1.0 for all returned exposures.")

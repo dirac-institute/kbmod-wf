@@ -51,8 +51,9 @@ def injection_module(monkeypatch):
     ],
 )
 @pytest.mark.parametrize("precomputed", [False, True])
+@pytest.mark.parametrize("disable_mask", [False, True])
 def test_runtime_toml_options_reach_injector(
-    injection_module, zero_background, reduce_variance, constant_variance, precomputed, caplog
+    injection_module, zero_background, reduce_variance, constant_variance, precomputed, disable_mask, caplog
 ):
     """Both catalog paths forward the requested booleans and fixed reduction factor."""
     # Parse real TOML, then select the app subsection passed by the workflow.
@@ -61,6 +62,7 @@ def test_runtime_toml_options_reach_injector(
         f"zero_background = {str(zero_background).lower()}\n"
         f"reduce_variance = {str(reduce_variance).lower()}\n"
         f"constant_variance = {str(constant_variance).lower()}\n"
+        f"disable_mask = {str(disable_mask).lower()}\n"
     )["apps"]["ic_to_wu"]
     if precomputed:
         runtime["injection"]["catalog_mapping_path"] = "mapping.parquet"
@@ -78,6 +80,9 @@ def test_runtime_toml_options_reach_injector(
     options = {}
     if zero_background:
         options["zero_background"] = True
+    if disable_mask:
+        options["disable_mask"] = True
+    assert f"disable_mask={disable_mask}" in caplog.text
     if constant_variance:
         options["constant_variance"] = True
         assert "constant variance planes of 1.0" in caplog.text
@@ -114,7 +119,7 @@ def test_conflicting_variance_options_rejected(injection_module):
     injection_module.inject_sources_into_ic.assert_not_called()
 
 
-@pytest.mark.parametrize("name", ["zero_background", "reduce_variance", "constant_variance"])
+@pytest.mark.parametrize("name", ["zero_background", "reduce_variance", "constant_variance", "disable_mask"])
 @pytest.mark.parametrize("value", ["false", 1, None])
 def test_non_boolean_options_rejected(injection_module, name, value):
     """Reject truthy strings and numbers before loading or changing exposures."""

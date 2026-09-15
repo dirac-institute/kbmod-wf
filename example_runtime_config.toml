@@ -33,6 +33,9 @@ overwrite = false
 # Optional image controls (require KBMOD's zero-background injection support).
 # Keep only injected sources; normal injection retains the science background.
 zero_background = false
+# Bypass standardizer masks when building the WorkUnit; keep original masks for injection.
+# This does not restore science or variance pixels that are already NaN.
+disable_mask = false
 # Reduce every output variance plane by 1e-4 for high-SNR recovery checks.
 # With both variance options false, output variance is untouched (no multiplication by 1.0).
 reduce_variance = false
