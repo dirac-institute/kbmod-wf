@@ -30,6 +30,12 @@ overwrite = false
 # Injection configuration section
 # Supports two modes: Generative (random catalog) or Pre-Computed (user-supplied catalog)
 [apps.ic_to_wu.injection]
+# Independent of worker counts for other stages. Requires save=True when > 1.
+injection_workers = 1
+# Complete MJD groups stay together; larger groups raise before loading pixels.
+# Account for per-image dimensions and conversion copies before increasing this.
+max_images_per_shard = 8
+
 # Optional image controls (require KBMOD's zero-background injection support).
 # Keep only injected sources; normal injection retains the science background.
 zero_background = false

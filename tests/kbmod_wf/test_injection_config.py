@@ -35,7 +35,10 @@ def injection_module(monkeypatch):
     spec.loader.exec_module(module)
     module._validate_injected_mask_support = mock.Mock()
     module._load_catalog_from_mapping = mock.Mock()
-    module.inject_sources_into_ic.return_value = (mock.sentinel.injected_ic, mock.sentinel.injected_catalog)
+    module.inject_sources_into_ic.return_value = (
+        mock.sentinel.injected_ic,
+        mock.sentinel.injected_catalog,
+    )
     return module
 
 
@@ -52,7 +55,12 @@ def injection_module(monkeypatch):
 )
 @pytest.mark.parametrize("precomputed", [False, True])
 def test_runtime_toml_options_reach_injector(
-    injection_module, zero_background, reduce_variance, constant_variance, precomputed, caplog
+    injection_module,
+    zero_background,
+    reduce_variance,
+    constant_variance,
+    precomputed,
+    caplog,
 ):
     """Both catalog paths forward the requested booleans and fixed reduction factor."""
     # Parse real TOML, then select the app subsection passed by the workflow.
@@ -71,7 +79,12 @@ def test_runtime_toml_options_reach_injector(
     ic, butler = mock.Mock(), mock.Mock()
     with caplog.at_level(logging.INFO):
         result = injection_module.ic_to_injected_ic(
-            ic, butler, runtime, 40.0, "input.ecsv", logger=logging.getLogger("test.injection")
+            ic,
+            butler,
+            runtime,
+            40.0,
+            "input.ecsv",
+            logger=logging.getLogger("test.injection"),
         )
 
     # Disabled options must be omitted entirely to preserve the legacy KBMOD call.
@@ -100,7 +113,9 @@ def test_default_options_preserve_legacy_call(injection_module):
     ic, butler = mock.Mock(), mock.Mock()
     injection_module.ic_to_injected_ic(ic, butler, {"injection": {}}, 40.0, "input.ecsv")
     injection_module.inject_sources_into_ic.assert_called_once_with(
-        ic, catalog=injection_module.generate_injection_catalog.return_value, butler=butler
+        ic,
+        catalog=injection_module.generate_injection_catalog.return_value,
+        butler=butler,
     )
 
 
@@ -122,3 +137,82 @@ def test_non_boolean_options_rejected(injection_module, name, value):
         injection_module.ic_to_injected_ic(None, None, {"injection": {name: value}}, 40.0, "input.ecsv")
     injection_module._validate_injected_mask_support.assert_not_called()
     injection_module.inject_sources_into_ic.assert_not_called()
+
+
+@pytest.mark.parametrize("name", ["injection_workers", "max_images_per_shard"])
+@pytest.mark.parametrize("value", [0, -1, True, "2", 1.5, None])
+def test_invalid_parallel_options_fail_before_loading(injection_module, name, value):
+    converter = injection_module.ICtoWUConverter(
+        runtime_config={"injection": {name: value}}, logger=mock.Mock()
+    )
+    with pytest.raises(ValueError, match=name):
+        converter.create_work_unit()
+    injection_module.ImageCollection.read.assert_not_called()
+    injection_module.Butler.assert_not_called()
+
+
+def test_parallel_requires_saved_output(injection_module):
+    converter = injection_module.ICtoWUConverter(
+        save=False,
+        runtime_config={"injection": {"injection_workers": 2}},
+        logger=mock.Mock(),
+    )
+    with pytest.raises(ValueError, match="save=True"):
+        converter.create_work_unit()
+    injection_module.ImageCollection.read.assert_not_called()
+
+
+@pytest.mark.parametrize("precomputed", [False, True])
+def test_parallel_workflow_writes_in_workers(injection_module, monkeypatch, precomputed):
+    parallel = ModuleType("kbmod.injection_parallel")
+    output_catalog = mock.Mock()
+    parallel.inject_sources_to_workunit = mock.Mock(return_value=("output.fits", output_catalog))
+    monkeypatch.setitem(sys.modules, "kbmod.injection_parallel", parallel)
+    runtime = {
+        "butler_config_filepath": "repo.yaml",
+        "search_config_filepath": "search.yaml",
+        "injection": {
+            "injection_workers": 2,
+            "max_images_per_shard": 4,
+            "zero_background": True,
+            "constant_variance": True,
+        },
+    }
+    if precomputed:
+        runtime["injection"]["catalog_mapping_path"] = "mapping.parquet"
+        catalog = injection_module._load_catalog_from_mapping.return_value
+    else:
+        catalog = injection_module.generate_injection_catalog.return_value
+    converter = injection_module.ICtoWUConverter(
+        "input.ecsv", "output.fits", runtime_config=runtime, logger=mock.Mock()
+    )
+    assert converter.create_work_unit() == "output.fits"
+    parallel.inject_sources_to_workunit.assert_called_once_with(
+        injection_module.ImageCollection.read.return_value,
+        catalog,
+        "repo.yaml",
+        "output.fits",
+        injection_workers=2,
+        max_images_per_shard=4,
+        search_config=injection_module.SearchConfiguration.from_file.return_value,
+        zero_background=True,
+        constant_variance=True,
+    )
+    injection_module.inject_sources_into_ic.assert_not_called()
+    injection_module.ImageCollection.read.return_value.toWorkUnit.assert_not_called()
+    injection_module.Butler.return_value.close.assert_called_once()
+    catalog.to_pandas.return_value.to_parquet.assert_called_once_with(
+        "input.ecsv.injection_input_cat.parquet"
+    )
+    output_catalog.to_pandas.return_value.to_parquet.assert_called_once_with(
+        "input.ecsv.injection_cat.parquet"
+    )
+    assert injection_module.generate_injection_catalog.call_count == (0 if precomputed else 1)
+
+
+def test_direct_ic_helper_rejects_parallel_setting(injection_module):
+    with pytest.raises(ValueError, match="ICtoWUConverter"):
+        injection_module.ic_to_injected_ic(
+            None, None, {"injection": {"injection_workers": 2}}, 40.0, "input.ecsv"
+        )
+    injection_module.generate_injection_catalog.assert_not_called()

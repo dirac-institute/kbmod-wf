@@ -75,6 +75,14 @@ class ICtoWUConverter:
         self.search_config_filepath = self.runtime_config.get("search_config_filepath", None)
 
     def create_work_unit(self):
+        injection_options = self.runtime_config.get("injection")
+        workers, shard_size = _parallel_injection_options(injection_options)
+        if workers > 1 and not self.save:
+            raise ValueError(
+                "Parallel injection requires save=True to keep pixels out of the parent process."
+            )
+        if workers > 1 and not self.wu_filepath:
+            raise ValueError("Parallel injection requires a WorkUnit output path.")
         ic = ImageCollection.read(self.ic_filepath, format="ascii.ecsv")
         self.logger.info(f"ImageCollection read from {self.ic_filepath}, creating work unit next.")
 
@@ -90,14 +98,48 @@ class ICtoWUConverter:
             self.logger.info("No injection config provided, skipping injection step.")
         else:
             last_time = time.time()
-            ic, injected_cats = ic_to_injected_ic(
-                ic,
-                this_butler,
-                self.runtime_config,
-                self.guess_dist,
-                ic_filepath=self.ic_filepath,
-                logger=self.logger,
-            )
+            if workers > 1:
+                # Import only when enabled: default runs remain compatible with
+                # KBMOD versions that do not yet provide the sharding API.
+                from kbmod.injection_parallel import inject_sources_to_workunit
+
+                try:
+                    catalog, injection_kwargs = _prepare_injection(
+                        ic,
+                        this_butler,
+                        self.runtime_config,
+                        self.guess_dist,
+                        self.ic_filepath,
+                        self.logger,
+                    )
+                finally:
+                    close = getattr(this_butler, "close", None)
+                    if close is not None:
+                        close()
+                self.logger.info(
+                    "Parallel injection: %d workers, at most %d images per MJD shard.",
+                    workers,
+                    shard_size,
+                )
+                output_path, injected_cats = inject_sources_to_workunit(
+                    ic,
+                    catalog,
+                    self.runtime_config.get("butler_config_filepath", None),
+                    self.wu_filepath,
+                    injection_workers=workers,
+                    max_images_per_shard=shard_size,
+                    search_config=SearchConfiguration.from_file(self.search_config_filepath),
+                    **injection_kwargs,
+                )
+            else:
+                ic, injected_cats = ic_to_injected_ic(
+                    ic,
+                    this_butler,
+                    self.runtime_config,
+                    self.guess_dist,
+                    ic_filepath=self.ic_filepath,
+                    logger=self.logger,
+                )
             elapsed = round(time.time() - last_time, 1)
             self.logger.debug(f"Required {elapsed}[s] to inject objects into ImageCollection.")
 
@@ -107,10 +149,13 @@ class ICtoWUConverter:
             injected_cats.to_pandas().to_parquet(injected_cat_filepath)
             elapsed = round(time.time() - last_time, 1)
             self.logger.debug(f"Required {elapsed}[s] to save injected catalog to: {injected_cat_filepath}")
+            if workers > 1:
+                return output_path
 
         last_time = time.time()
         orig_wu = ic.toWorkUnit(
-            search_config=SearchConfiguration.from_file(self.search_config_filepath), butler=this_butler
+            search_config=SearchConfiguration.from_file(self.search_config_filepath),
+            butler=this_butler,
         )
         elapsed = round(time.time() - last_time, 1)
         self.logger.debug(f"Required {elapsed}[s] to create WorkUnit.")
@@ -129,9 +174,35 @@ class ICtoWUConverter:
         return self.wu_filepath
 
 
+def _parallel_injection_options(config):
+    config = {} if config is None else config
+    values = []
+    for name, default in (("injection_workers", 1), ("max_images_per_shard", 8)):
+        value = config.get(name, default)
+        if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+            raise ValueError(f"injection.{name} must be a positive integer.")
+        values.append(value)
+    return tuple(values)
+
+
 def ic_to_injected_ic(ic, butler, runtime_config, heliocentric_distance, ic_filepath, logger=None):
+    """Inject serially and return an ImageCollection and the rendered catalog.
+
+    Parallel saved-WorkUnit execution is selected by ICtoWUConverter. This
+    compatibility helper always retains its original in-memory return type.
     """
-    Inject synthetic solar system objects into an ImageCollection.
+    workers, _ = _parallel_injection_options(runtime_config.get("injection"))
+    if workers > 1:
+        raise ValueError("Use ICtoWUConverter with save=True for parallel injection.")
+    catalog, injection_kwargs = _prepare_injection(
+        ic, butler, runtime_config, heliocentric_distance, ic_filepath, logger
+    )
+    return inject_sources_into_ic(ic, catalog=catalog, butler=butler, **injection_kwargs)
+
+
+def _prepare_injection(ic, butler, runtime_config, heliocentric_distance, ic_filepath, logger=None):
+    """
+    Prepare a full-collection injection catalog and image options.
 
     Supports two modes:
     1. **Generative**: Randomly generate an injection catalog using `generate_injection_catalog()`
@@ -163,7 +234,7 @@ def ic_to_injected_ic(ic, butler, runtime_config, heliocentric_distance, ic_file
     Returns
     -------
     tuple
-        A tuple containing (injected_ic, injected_cats).
+        A tuple containing (catalog, injection_kwargs).
 
     Raises
     ------
@@ -213,7 +284,8 @@ def ic_to_injected_ic(ic, butler, runtime_config, heliocentric_distance, ic_file
             logger.info("Requesting constant variance planes of 1.0 for all returned exposures.")
         elif reduce_variance:
             logger.info(
-                "Requesting variance_scale=%g for all injected output exposures.", _REDUCED_VARIANCE_SCALE
+                "Requesting variance_scale=%g for all injected output exposures.",
+                _REDUCED_VARIANCE_SCALE,
             )
         else:
             logger.info("Variance reduction disabled; no variance scaling requested.")
@@ -250,12 +322,7 @@ def ic_to_injected_ic(ic, butler, runtime_config, heliocentric_distance, ic_file
     if logger:
         logger.debug(f"Saved input catalog for provenance: {input_cat_filepath}")
 
-    # Perform the injection
-    injected_ic, injected_cats = inject_sources_into_ic(
-        ic, catalog=catalog, butler=butler, **injection_kwargs
-    )
-
-    return injected_ic, injected_cats
+    return catalog, injection_kwargs
 
 
 def _validate_injected_mask_support(ic, butler, logger=None):
