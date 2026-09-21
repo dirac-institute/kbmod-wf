@@ -1,0 +1,17 @@
+# Reference for the longest indexed baseline and PSF sigma >=2 pixels.
+# Grid/LH fragment only: generate denser samples for sharper PSFs.
+lh_level: 5.0
+candidate_dup_px: 0
+generator_config:
+  name: EclipticCenteredSearch
+  velocities:
+  - 5.0
+  - 600.0
+  - 135
+  angles:
+  - 120.0
+  - 240.0
+  - 283
+  angle_units: degree
+  velocity_units: pix / d
+  given_ecliptic: null
