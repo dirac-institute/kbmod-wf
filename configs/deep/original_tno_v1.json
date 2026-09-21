@@ -1,0 +1,61 @@
+{
+  "grid_id": "deep-original-tno-v1",
+  "status": "selected science grid policy; not a complete production run configuration",
+  "frame": "original",
+  "distance_au": null,
+  "mask_injections": false,
+  "lh_level": 5.0,
+  "candidate_dup_px": 0,
+  "speed_bounds_pix_day": [
+    5.0,
+    600.0
+  ],
+  "angle_offsets_deg": [
+    120.0,
+    240.0
+  ],
+  "pixel_scale_guard_arcsec": [
+    0.25,
+    0.28
+  ],
+  "budget": "min(1.0 pixel, 0.5 * minimum PSF sigma in common pixel frame)",
+  "sample_counts": "Nv=ceil((vmax-vmin)*T/(sqrt(2)*budget))+1; Na=ceil(radians(angle_width)*vmax*T/(sqrt(2)*budget))+1; each at least 2",
+  "generator": "EclipticCenteredSearch",
+  "angle_units": "degree",
+  "velocity_units": "pix / d",
+  "given_ecliptic": null,
+  "required_before_execution": [
+    "Actual UTC exposure midpoints and common WCS",
+    "PSF sigma in common pixel frame for every exposure",
+    "Explicit results_per_pixel, sigma-G, minimum observations, output-cap and checkpoint policy",
+    "Full-image LH5 benchmark and denser-grid sensitivity comparison"
+  ],
+  "reference_only": {
+    "grid_id": "deep-original-tno-v1",
+    "baseline_days": 0.3172887084656395,
+    "min_psf_sigma_pixels": 2.0,
+    "endpoint_drift_budget_pixels": 1.0,
+    "endpoint_drift_bound_pixels": 0.9979929217252348,
+    "vectors_per_pixel": 38205,
+    "kbmod_config": {
+      "lh_level": 5.0,
+      "candidate_dup_px": 0,
+      "generator_config": {
+        "name": "EclipticCenteredSearch",
+        "velocities": [
+          5.0,
+          600.0,
+          135
+        ],
+        "angles": [
+          120.0,
+          240.0,
+          283
+        ],
+        "angle_units": "degree",
+        "velocity_units": "pix / d",
+        "given_ecliptic": null
+      }
+    }
+  }
+}
