@@ -1,4 +1,7 @@
 def test_production_reflex_runner_calls_shared_helper(monkeypatch, tmp_path):
+    import pytest
+
+    pytest.importorskip("kbmod", reason="Requires the optional KBMOD integration runtime")
     import sys
     import types
     from unittest.mock import Mock
