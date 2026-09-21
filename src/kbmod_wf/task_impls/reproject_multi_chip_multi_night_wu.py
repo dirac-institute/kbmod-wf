@@ -5,7 +5,6 @@ from kbmod.reprojection_utils import transform_wcses_to_ebd
 
 
 import kbmod.reprojection as reprojection
-from kbmod_wf.task_impls.ic_to_wu import ic_to_wu
 from astropy.wcs import WCS
 from astropy.io import fits
 from astropy.coordinates import EarthLocation
@@ -14,6 +13,52 @@ import numpy as np
 import os
 import time
 from logging import Logger
+
+
+def reproject_workunit_in_frame(wu, common_wcs=None, *, guess_dist=None, n_workers=8, npoints=100, seed=None):
+    """Shared Rubin/DEEP WorkUnit reflex correction and image reprojection.
+
+    ``guess_dist`` is the barycentric distance in AU. None uses original sky.
+    A supplied common WCS preserves the production patch geometry. With no patch
+    WCS (bounded single-chip validation), use the middle exposure in that frame.
+    """
+    if guess_dist is not None and not np.isfinite(guess_dist):
+        raise ValueError("Distance must be finite")
+    frame = "original"
+    wcses = [wu.get_wcs(i) for i in range(len(wu))]
+    if guess_dist is not None:
+        if guess_dist <= 1.02:
+            raise ValueError("EBD distance must exceed 1.02 AU")
+        # The existing Rubin routine assumes homogeneous image dimensions.
+        shapes = {tuple(w.array_shape) for w in wcses}
+        if len(shapes) != 1:
+            raise ValueError("EBD reprojection requires homogeneous input WCS shapes")
+        image_height, image_width = next(iter(shapes))
+        ebd, geo = transform_wcses_to_ebd(
+            wcses,
+            image_width,
+            image_height,
+            guess_dist,
+            Time(wu.get_all_obstimes(), format="mjd", scale="utc"),
+            wu.observatory,
+            npoints=npoints,
+            seed=seed,
+        )
+        wu.org_img_meta["ebd_wcs"] = ebd
+        wu.org_img_meta["geocentric_distance"] = geo
+        wu.barycentric_distance = guess_dist
+        wcses = ebd
+        frame = "ebd"
+    if common_wcs is None:
+        common_wcs = wcses[len(wcses) // 2].deepcopy()
+        common_wcs.array_shape = wu.get_wcs(len(wcses) // 2).array_shape
+    return reprojection.reproject_work_unit(
+        wu,
+        common_wcs,
+        parallelize=True,
+        frame=frame,
+        max_parallel_processes=n_workers,
+    )
 
 
 def reproject_wu(
@@ -81,6 +126,8 @@ class WUReprojector:
         self.point_on_earth = EarthLocation.of_site(self.runtime_config.get("observation_site", "Rubin"))
 
     def reproject_workunit(self):
+        from kbmod_wf.task_impls.ic_to_wu import ic_to_wu
+
         last_time = time.time()
         self.logger.info(f"Loading a WorkUnit from ImageCollection at {self.ic_filepath}")
         wu = ic_to_wu(
@@ -96,44 +143,20 @@ class WUReprojector:
             f"Required {elapsed}[s] to create original WorkUnit from ImageCollection at {self.ic_filepath}."
         )
 
-        #! This method to get image dimensions won't hold if the images are different sizes.
-        image_height, image_width = wu.get_wcs(0).array_shape
-
-        # Find the EBD (estimated barycentric distance) WCS for each image
-        last_time = time.time()
-        ebd_per_image_wcs, geocentric_dists = transform_wcses_to_ebd(
-            [wu.get_wcs(i) for i in range(len(wu))],
-            image_width,
-            image_height,
-            self.guess_dist,  # heliocentric guess distance in AU
-            Time(wu.get_all_obstimes(), format="mjd"),
-            self.point_on_earth,
-            npoints=100,
-            seed=None,
-        )
-        elapsed = round(time.time() - last_time, 1)
-        self.logger.debug(f"Required {elapsed}[s] to transform WCS objects to EBD..")
-
-        wu.org_img_meta["ebd_wcs"] = ebd_per_image_wcs
-        wu.barycentric_distance = self.guess_dist
-        wu.org_img_meta["geocentric_distance"] = geocentric_dists
-
-        # Reproject to a common WCS using the WCS for our patch
-        self.logger.debug(f"Reprojecting WorkUnit with {self.n_workers} workers...")
-        last_time = time.time()
-
-        # Use the global WCS that was specified from the ImageCollection.
+        # Preserve the configured production observatory in the WorkUnit and output.
+        wu.observatory = self.point_on_earth
         ic = ImageCollection.read(self.ic_filepath, format="ascii.ecsv")
-
-        # Pick the global WCS from the ImageCollection, or auto-fit if none exist
         common_wcs = ic.get_global_wcs(auto_fit=False)
-
-        resampled_wu = reprojection.reproject_work_unit(
+        if common_wcs is None:
+            raise ValueError("Production ImageCollection requires an explicit patch WCS")
+        last_time = time.time()
+        resampled_wu = reproject_workunit_in_frame(
             wu,
             common_wcs,
-            parallelize=True,
-            frame="ebd",
-            max_parallel_processes=self.n_workers,
+            guess_dist=self.guess_dist,
+            n_workers=self.n_workers,
+            npoints=self.runtime_config.get("ebd_fit_points", 100),
+            seed=self.runtime_config.get("ebd_fit_seed", None),
         )
         directory_containing_shards, wu_filename = os.path.split(self.reprojected_wu_filepath)
         resampled_wu.to_sharded_fits(wu_filename, directory_containing_shards, overwrite=self.overwrite)
