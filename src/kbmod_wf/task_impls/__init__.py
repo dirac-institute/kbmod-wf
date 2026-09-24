@@ -1,17 +1,3 @@
-def __getattr__(name):
-    # Native FITS preparation does not require Butler, CUDA, or injection tools.
-    if name in {"ic_to_wu", "kbmod_search", "uri_to_ic"}:
-        from importlib import import_module
-
-        value = getattr(import_module(f"{__name__}.{name}"), name)
-        globals()[name] = value
-        return value
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-
-
-__all__ = [
-    "ic_to_wu",
-    "kbmod_search",
-    "reproject_wu",
-    "uri_to_ic",
-]
+# Task implementations are imported from their submodules (e.g.
+# ``from kbmod_wf.task_impls.ic_to_wu import ic_to_wu``) so that importing this
+# package does not require the Butler, CUDA, or injection dependencies.

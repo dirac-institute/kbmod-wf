@@ -1,12 +1,10 @@
 import kbmod
 from kbmod.work_unit import WorkUnit
-from kbmod.reprojection_utils import transform_wcses_to_ebd
 
 import kbmod.reprojection as reprojection
 from astropy.wcs import WCS
 from astropy.io import fits
 from astropy.coordinates import EarthLocation
-from astropy.time import Time
 import numpy as np
 import os
 import time
@@ -116,40 +114,22 @@ class WUReprojector:
             f"Required {elapsed}[s] to lazy read original WorkUnit {self.original_wu_filepath}."
         )
 
-        image_height, image_width = wu.get_wcs(0).array_shape
-
-        # Find the EBD (estimated barycentric distance) WCS for each image
-        last_time = time.time()
-        ebd_per_image_wcs, geocentric_dists = transform_wcses_to_ebd(
-            [wu.get_wcs(i) for i in range(len(wu))],
-            image_width,
-            image_height,
-            self.guess_dist,
-            Time(wu.get_all_obstimes(), format="mjd"),
-            self.point_on_earth,
-            npoints=100,
-            seed=None,
-        )
-        elapsed = round(time.time() - last_time, 1)
-        self.logger.debug(f"Required {elapsed}[s] to transform WCS objects to EBD..")
-
-        wu.org_img_meta["ebd_wcs"] = ebd_per_image_wcs
-        wu.barycentric_distance = self.guess_dist
-        wu.org_img_meta["geocentric_distance"] = geocentric_dists
-
-        # Reproject to a common WCS using the WCS for our patch
+        # Find the EBD (estimated barycentric distance) WCS for each image and reproject
+        # to a common WCS using the WCS for our patch.
+        wu.observatory = self.point_on_earth
         self.logger.debug(f"Reprojecting WorkUnit with {self.n_workers} workers...")
         last_time = time.time()
 
         directory_containing_reprojected_shards, reprojected_wu_filename = os.path.split(
             self.reprojected_wu_filepath
         )
-        reprojection.reproject_lazy_work_unit(
+        reprojection.reproject_work_unit_to_distance(
             wu,
-            patch_wcs,
-            directory_containing_reprojected_shards,
-            reprojected_wu_filename,
-            frame="ebd",
+            self.guess_dist,
+            common_wcs=patch_wcs,
+            npoints=100,
+            directory=directory_containing_reprojected_shards,
+            filename=reprojected_wu_filename,
             max_parallel_processes=self.n_workers,
         )
         elapsed = round(time.time() - last_time, 1)
