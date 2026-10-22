@@ -16,7 +16,7 @@ classifiers = [
 dynamic = ["version"]
 requires-python = ">=3.11"
 dependencies = [
-    "parsl", # The primary workflow orchestration tool
+    "parsl[monitoring]", # Workflow orchestration and USDF monitoring
     "toml", # Used to read runtime configuration files
     "astropy", # Used for various file, date, and location manipulations
     "reproject", # Used to reproject images
