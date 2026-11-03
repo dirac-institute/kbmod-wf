@@ -95,10 +95,11 @@ def test_runtime_toml_options_reach_injector(
     assert result == (mock.sentinel.injected_ic, mock.sentinel.injected_catalog)
 
 
-def test_default_options_preserve_legacy_call(injection_module):
+@pytest.mark.parametrize("options", [{}, {"catalog_magnitude_mode": "native"}])
+def test_default_options_preserve_legacy_call(injection_module, options):
     """Omitting the new flags does not require the new KBMOD keyword arguments."""
     ic, butler = mock.Mock(), mock.Mock()
-    injection_module.ic_to_injected_ic(ic, butler, {"injection": {}}, 40.0, "input.ecsv")
+    injection_module.ic_to_injected_ic(ic, butler, {"injection": options}, 40.0, "input.ecsv")
     injection_module.inject_sources_into_ic.assert_called_once_with(
         ic, catalog=injection_module.generate_injection_catalog.return_value, butler=butler
     )
@@ -112,6 +113,119 @@ def test_conflicting_variance_options_rejected(injection_module):
     # Reject the configuration before mask validation can load an exposure.
     injection_module._validate_injected_mask_support.assert_not_called()
     injection_module.inject_sources_into_ic.assert_not_called()
+
+
+def test_total_mode_prepares_before_saving_and_injecting(injection_module, monkeypatch, caplog):
+    """Persist and inject the prepared catalog, not the original total magnitudes."""
+    prepare = mock.Mock(return_value=mock.Mock())
+    monkeypatch.setattr(sys.modules["kbmod.injection"], "prepare_injection_catalog", prepare, raising=False)
+    catalog = injection_module._load_catalog_from_mapping.return_value
+    prepared = prepare.return_value
+    runtime = toml.loads(
+        '[apps.ic_to_wu.injection]\ncatalog_mapping_path = "mapping.parquet"\n'
+        'catalog_magnitude_mode = "total"\n'
+    )["apps"]["ic_to_wu"]
+    with caplog.at_level(logging.INFO):
+        injection_module.ic_to_injected_ic(
+            mock.sentinel.ic,
+            mock.sentinel.butler,
+            runtime,
+            40.0,
+            "input.ecsv",
+            logger=logging.getLogger("test.injection"),
+        )
+    prepare.assert_called_once_with(catalog)
+    prepared.to_pandas.return_value.to_parquet.assert_called_once_with(
+        "input.ecsv.injection_input_cat.parquet"
+    )
+    catalog.to_pandas.assert_not_called()
+    injection_module.inject_sources_into_ic.assert_called_once_with(
+        mock.sentinel.ic, catalog=prepared, butler=mock.sentinel.butler
+    )
+    injection_module.generate_injection_catalog.assert_not_called()
+    assert "preserving total magnitudes as truth" in caplog.text
+
+
+@pytest.mark.parametrize("value", ["TOTAL", "unknown", None, True, 1, []])
+def test_invalid_magnitude_mode_rejected(injection_module, value):
+    """Reject invalid magnitude conventions before loading exposures."""
+    with pytest.raises(ValueError, match="catalog_magnitude_mode must be"):
+        injection_module.ic_to_injected_ic(
+            None, None, {"injection": {"catalog_magnitude_mode": value}}, 40.0, "input.ecsv"
+        )
+    injection_module._validate_injected_mask_support.assert_not_called()
+
+
+def test_total_mode_requires_mapping(injection_module):
+    """Total magnitudes apply only to an explicitly supplied external catalog."""
+    with pytest.raises(ValueError, match="requires catalog_mapping_path"):
+        injection_module.ic_to_injected_ic(
+            None, None, {"injection": {"catalog_magnitude_mode": "total"}}, 40.0, "input.ecsv"
+        )
+    injection_module._validate_injected_mask_support.assert_not_called()
+
+
+def test_total_mode_requires_new_kbmod(injection_module):
+    """Old KBMOD remains usable in native mode and reports an actionable total-mode error."""
+    runtime = {"injection": {"catalog_mapping_path": "mapping.parquet", "catalog_magnitude_mode": "total"}}
+    with pytest.raises(RuntimeError, match="requires a KBMOD version with prepare_injection_catalog"):
+        injection_module.ic_to_injected_ic(None, None, runtime, 40.0, "input.ecsv")
+    injection_module._validate_injected_mask_support.assert_not_called()
+    injection_module._load_catalog_from_mapping.assert_not_called()
+
+
+def test_total_mode_does_not_fall_back_to_generation(injection_module, monkeypatch):
+    """Missing mappings/files must not silently replace the requested external population."""
+    prepare = mock.Mock()
+    monkeypatch.setattr(sys.modules["kbmod.injection"], "prepare_injection_catalog", prepare, raising=False)
+    injection_module._load_catalog_from_mapping.return_value = None
+    runtime = {"injection": {"catalog_mapping_path": "mapping.parquet", "catalog_magnitude_mode": "total"}}
+    with pytest.raises(ValueError, match="requires a mapped catalog for input.ecsv"):
+        injection_module.ic_to_injected_ic(mock.Mock(), mock.Mock(), runtime, 40.0, "input.ecsv")
+    prepare.assert_not_called()
+    injection_module.generate_injection_catalog.assert_not_called()
+    injection_module.inject_sources_into_ic.assert_not_called()
+
+
+def test_total_mode_with_real_kbmod_helper(tmp_path, monkeypatch, request):
+    """When new KBMOD is available, verify mixed-source values and saved truth through the adapter."""
+    # Import before the stand-ins are installed. Standard CI needs neither
+    # KBMOD nor LSST; run this additional integration check with KBMOD PR #1189.
+    kbmod_injection = pytest.importorskip("kbmod.injection")
+    if not hasattr(kbmod_injection, "prepare_injection_catalog"):
+        pytest.skip("Requires KBMOD prepare_injection_catalog")
+    import numpy as np
+    import pandas as pd
+    import astropy.table as table_module
+
+    injection_module = request.getfixturevalue("injection_module")
+    monkeypatch.setitem(sys.modules, "kbmod.injection", kbmod_injection)
+    monkeypatch.setitem(sys.modules, "pandas", pd)
+    monkeypatch.setitem(sys.modules, "astropy.table", table_module)
+    truth = table_module.Table(
+        {
+            "source_type": ["Star", "Trail"],
+            "mag_total": [22.0, 22.0],
+            "obj_ids": [10, 11],
+            "obstime": [59000.0, 59000.0],
+        }
+    )
+    truth["trail_length"] = table_module.MaskedColumn([0.0, 10.0], mask=[True, False])
+    truth["beta"] = table_module.MaskedColumn([0.0, 45.0], mask=[True, False])
+    injection_module._load_catalog_from_mapping.return_value = truth
+    ic_path = str(tmp_path / "input.ecsv")
+    runtime = {"injection": {"catalog_mapping_path": "mapping.parquet", "catalog_magnitude_mode": "total"}}
+    injection_module.ic_to_injected_ic(mock.Mock(), mock.Mock(), runtime, 40.0, ic_path)
+    prepared = injection_module.inject_sources_into_ic.call_args.kwargs["catalog"]
+    saved = pd.read_parquet(ic_path + ".injection_input_cat.parquet")
+    np.testing.assert_allclose(prepared["mag"], [22.0, 24.5])
+    np.testing.assert_allclose(saved["mag"], prepared["mag"])
+    np.testing.assert_array_equal(saved["mag_total"], truth["mag_total"])
+    np.testing.assert_array_equal(saved["obj_ids"], truth["obj_ids"])
+    np.testing.assert_array_equal(saved["obstime"], truth["obstime"])
+    assert pd.isna(saved["beta"][0])
+    assert saved["beta"][1] == 45.0
+    assert "mag" not in truth.colnames
 
 
 @pytest.mark.parametrize("name", ["zero_background", "reduce_variance", "constant_variance"])

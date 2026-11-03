@@ -148,6 +148,8 @@ def ic_to_injected_ic(ic, butler, runtime_config, heliocentric_distance, ic_file
         - n_objs_per_ic : int - Number of objects to inject (default: 50)
         - mag_range : list - [min, max] magnitude range (default: [19.0, 26.0])
         - catalog_mapping_path : str - Path to parquet file mapping IC paths to catalog paths
+        - catalog_magnitude_mode : str - "native" (default) passes magnitudes through;
+          "total" prepares a mapped external catalog from mag_total using KBMOD
         - zero_background : bool - Keep only injected sources (default: False)
         - reduce_variance : bool - Scale all returned variance planes by 1e-4 (default: False)
         - constant_variance : bool - Set all returned variance planes to 1.0 (default: False);
@@ -179,6 +181,21 @@ def ic_to_injected_ic(ic, butler, runtime_config, heliocentric_distance, ic_file
     n_objs_per_ic = injection_config.get("n_objs_per_ic", 50)
     mag_range = injection_config.get("mag_range", [19.0, 26.0])
     catalog_mapping_path = injection_config.get("catalog_mapping_path", None)
+    catalog_magnitude_mode = injection_config.get("catalog_magnitude_mode", "native")
+    if catalog_magnitude_mode not in ("native", "total"):
+        raise ValueError("injection.catalog_magnitude_mode must be 'native' or 'total'.")
+    prepare_catalog = None
+    if catalog_magnitude_mode == "total":
+        if not catalog_mapping_path:
+            raise ValueError("injection.catalog_magnitude_mode='total' requires catalog_mapping_path.")
+        # Import only when requested so native mode works with older KBMOD.
+        try:
+            from kbmod.injection import prepare_injection_catalog
+        except ImportError as exc:
+            raise RuntimeError(
+                "catalog_magnitude_mode='total' requires a KBMOD version with prepare_injection_catalog."
+            ) from exc
+        prepare_catalog = prepare_injection_catalog
     zero_background = injection_config.get("zero_background", False)
     reduce_variance = injection_config.get("reduce_variance", False)
     constant_variance = injection_config.get("constant_variance", False)
@@ -228,6 +245,12 @@ def ic_to_injected_ic(ic, butler, runtime_config, heliocentric_distance, ic_file
         # Pre-computed catalog mode: look up catalog path from mapping file
         catalog = _load_catalog_from_mapping(catalog_mapping_path, ic_filepath, logger)
 
+    if catalog is None and catalog_magnitude_mode == "total":
+        raise ValueError(
+            f"catalog_magnitude_mode='total' requires a mapped catalog for {ic_filepath}; "
+            "no catalog was loaded."
+        )
+
     if catalog is None:
         # Generative mode: create catalog using kbmod's injection module
         if logger:
@@ -244,7 +267,12 @@ def ic_to_injected_ic(ic, butler, runtime_config, heliocentric_distance, ic_file
             mag_range=tuple(mag_range),
         )
 
-    # Save input catalog for provenance (before injection may filter some sources)
+    if prepare_catalog is not None:
+        catalog = prepare_catalog(catalog)
+        if logger:
+            logger.info("Prepared injection catalog from mag_total; preserving total magnitudes as truth.")
+
+    # Save exactly what will be injected, including mag_total when prepared.
     input_cat_filepath = str(ic_filepath) + ".injection_input_cat.parquet"
     catalog.to_pandas().to_parquet(input_cat_filepath)
     if logger:
