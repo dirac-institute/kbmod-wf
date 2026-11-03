@@ -50,6 +50,16 @@ mag_range = [19.0, 26.0]
 # The parquet should have columns: "ic_filepath" and "catalog_filepath"
 # catalog_mapping_path = "/path/to/catalog_mapping.parquet"
 
+# "native" passes existing Rubin-format mag values through unchanged.
+# "total" requires a mapped external catalog with mag_total and source_type,
+# and a KBMOD version providing prepare_injection_catalog (KBMOD PR #1189).
+# It prepares mag before saving provenance and injecting, retaining mag_total.
+# Star: mag = mag_total. Trail: mag = mag_total + 2.5*log10(trail_length).
+# Supply trail_length in native-image pixels and beta in degrees CCW from +x;
+# mask unused trail geometry on stars. The caller supplies positions/geometry.
+# Missing mappings/catalogs fail in total mode instead of generating sources.
+catalog_magnitude_mode = "native"
+
 
 [apps.reproject_wu]
 # Number of processors to use for parallelizing the reprojection
