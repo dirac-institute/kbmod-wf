@@ -1,7 +1,9 @@
 """Exercise URI builds through band selection and output writing."""
 
 import importlib.util
+import sys
 from pathlib import Path
+from types import ModuleType
 from unittest.mock import Mock
 
 from astropy.table import Table
@@ -10,7 +12,11 @@ import pytest
 
 
 @pytest.fixture
-def task():
+def task(monkeypatch):
+    # kbmod is supplied by the runtime environment, not installed by workflow CI.
+    kbmod = ModuleType("kbmod")
+    kbmod.ImageCollection = Mock()
+    monkeypatch.setitem(sys.modules, "kbmod", kbmod)
     path = Path(__file__).parents[2] / "src/kbmod_wf/task_impls/uri_to_ic.py"
     spec = importlib.util.spec_from_file_location("uri_to_ic_under_test", path)
     module = importlib.util.module_from_spec(spec)
