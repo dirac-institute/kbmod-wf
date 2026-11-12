@@ -29,7 +29,8 @@ def uri_to_ic(
         The fully resolved path to the output file where the ImageCollection will
         be saved, by default None
     runtime_config : dict, optional
-        Any parameters that must be set for this work to be performed, by default {}
+        Task options. ``bands_to_drop`` defaults to ["y"]; [] keeps all bands.
+        Inputs without band metadata are retained with a warning.
     logger : Logger, optional
         The logger to use for this work, by default None
 
@@ -86,6 +87,21 @@ def uri_to_ic(
     ic = ImageCollection.fromTargets(uris)
     elapsed = round(time.time() - last_time, 1)
     logger.debug(f"Required {elapsed}[s] to create ImageCollection.")
+
+    bands_to_drop = runtime_config.get("bands_to_drop", ["y"])
+    if not isinstance(bands_to_drop, (list, tuple)) or not all(
+        isinstance(band, str) for band in bands_to_drop
+    ):
+        raise ValueError("bands_to_drop must be a list of band names; use [] to keep all bands")
+    if bands_to_drop:
+        if "band" in ic.data.colnames:
+            before = len(ic)
+            ic.drop_bands(bands_to_drop)
+            logger.info(f"Dropped {before - len(ic)} images in bands {bands_to_drop}")
+        else:
+            logger.warning("ImageCollection has no band metadata; band exclusion could not be applied")
+    if len(ic) == 0:
+        raise ValueError("No images remain after band selection; ImageCollection was not written")
 
     logger.info(f"Writing ImageCollection to file {ic_filepath}")
     ic.write(ic_filepath, format="ascii.ecsv")
