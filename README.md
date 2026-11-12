@@ -88,3 +88,17 @@ search_config_filepath = "/gscratch/dirac/kbmod/workflow/staging/search_config.y
 ```
 
 
+
+### ImageCollection band selection
+
+URI-to-ImageCollection builds exclude y band by default. Set the task's runtime
+configuration to override this selection (an empty list explicitly keeps all bands):
+
+```toml
+[apps.uri_to_ic]
+bands_to_drop = ["y"]
+```
+
+Rows without band metadata are retained with a warning. A selection with no
+remaining images fails before writing an output collection. Existing collections
+are not rebuilt automatically; use a fresh output location when changing bands.
